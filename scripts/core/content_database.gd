@@ -4,14 +4,17 @@ const FACTION_ROSTER_PATH := "res://data/factions/faction_roster.json"
 const KING_CATALOG_PATH := "res://data/kings/kings.json"
 const ENEMY_CATALOG_PATH := "res://data/enemies/enemies.json"
 const WEAPON_ARCHETYPE_PATH := "res://data/combat/weapon_archetypes.json"
+const UNIT_CATALOG_PATH := "res://data/units/units.json"
 
 var factions: Dictionary = {}
 var kings: Dictionary = {}
 var enemies: Dictionary = {}
+var units: Dictionary = {}
 var weapon_archetypes: Dictionary = {}
 var content_version := ""
 var enemy_content_version := ""
 var weapon_content_version := ""
+var unit_content_version := ""
 var _initialized := false
 
 
@@ -22,6 +25,7 @@ func initialize() -> bool:
 	factions.clear()
 	kings.clear()
 	enemies.clear()
+	units.clear()
 	weapon_archetypes.clear()
 
 	var faction_source := _load_json(FACTION_ROSTER_PATH)
@@ -40,6 +44,10 @@ func initialize() -> bool:
 	if weapon_source.is_empty() or not weapon_source.get("archetypes", null) is Array:
 		push_error("Weapon archetype catalog is missing or invalid.")
 		return false
+	var unit_source := _load_json(UNIT_CATALOG_PATH)
+	if unit_source.is_empty() or not unit_source.get("units", null) is Array:
+		push_error("Unit catalog is missing or invalid.")
+		return false
 
 	var id_pattern := RegEx.new()
 	id_pattern.compile("^[a-z0-9]+(?:_[a-z0-9]+)*$")
@@ -51,6 +59,8 @@ func initialize() -> bool:
 	if not _index_kings(king_source["kings"], id_pattern):
 		return false
 	if not _index_enemies(enemy_source["enemies"], id_pattern):
+		return false
+	if not _index_units(unit_source["units"], id_pattern):
 		return false
 
 	content_version = str(king_source.get("content_version", ""))
@@ -64,6 +74,10 @@ func initialize() -> bool:
 	weapon_content_version = str(weapon_source.get("content_version", ""))
 	if weapon_content_version.is_empty():
 		push_error("Weapon archetype content_version is missing.")
+		return false
+	unit_content_version = str(unit_source.get("content_version", ""))
+	if unit_content_version.is_empty():
+		push_error("Unit catalog content_version is missing.")
 		return false
 
 	_initialized = true
@@ -155,6 +169,7 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 		var health_value: Variant = king.get("health", null)
 		var defense_value: Variant = king.get("defense", null)
 		var attack_value: Variant = king.get("attack", null)
+		var army_capacity_value: Variant = king.get("army_capacity", null)
 		if id_pattern.search(king_id) == null:
 			push_error("Invalid King ID: %s" % king_id)
 			return false
@@ -170,7 +185,7 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 		if not movement_value is Dictionary:
 			push_error("King movement data is missing: %s" % king_id)
 			return false
-		if not health_value is Dictionary or not defense_value is Dictionary or not attack_value is Dictionary:
+		if not health_value is Dictionary or not defense_value is Dictionary or not attack_value is Dictionary or not army_capacity_value is Dictionary:
 			push_error("King combat data is missing: %s" % king_id)
 			return false
 		var movement: Dictionary = movement_value
@@ -180,11 +195,15 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 		var health: Dictionary = health_value
 		var defense: Dictionary = defense_value
 		var attack: Dictionary = attack_value
+		var army_capacity: Dictionary = army_capacity_value
 		if float(health.get("max", 0.0)) <= 0.0:
 			push_error("King health must be positive: %s" % king_id)
 			return false
 		if float(defense.get("armor", -1.0)) < 0.0 or float(defense.get("magic_resistance", -1.0)) < 0.0:
 			push_error("King defense values must be non-negative: %s" % king_id)
+			return false
+		if int(army_capacity.get("max", 0)) <= 0:
+			push_error("King army capacity must be positive: %s" % king_id)
 			return false
 		for attack_key in ["damage", "range", "cooldown", "target_refresh"]:
 			if float(attack.get(attack_key, 0.0)) <= 0.0:
@@ -262,6 +281,63 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 	return true
 
 
+func _index_units(records: Array, id_pattern: RegEx) -> bool:
+	for unit_value in records:
+		if not unit_value is Dictionary:
+			push_error("Unit catalog contains a non-object entry.")
+			return false
+		var unit: Dictionary = unit_value
+		var unit_id := str(unit.get("id", ""))
+		var faction_id := str(unit.get("faction_id", ""))
+		if id_pattern.search(unit_id) == null:
+			push_error("Invalid unit ID: %s" % unit_id)
+			return false
+		if units.has(unit_id):
+			push_error("Duplicate unit ID: %s" % unit_id)
+			return false
+		if not factions.has(faction_id):
+			push_error("Unit references an unknown faction: %s" % unit_id)
+			return false
+		var health: Dictionary = unit.get("health", {})
+		var defense: Dictionary = unit.get("defense", {})
+		var movement: Dictionary = unit.get("movement", {})
+		var attack: Dictionary = unit.get("attack", {})
+		var summon: Dictionary = unit.get("summon", {})
+		var formation: Dictionary = unit.get("formation", {})
+		var presentation: Dictionary = unit.get("presentation", {})
+		if float(health.get("max", 0.0)) <= 0.0:
+			push_error("Unit health must be positive: %s" % unit_id)
+			return false
+		if float(defense.get("armor", -1.0)) < 0.0 or float(defense.get("magic_resistance", -1.0)) < 0.0:
+			push_error("Unit defense values must be non-negative: %s" % unit_id)
+			return false
+		for movement_key in ["speed", "collision_radius"]:
+			if float(movement.get(movement_key, 0.0)) <= 0.0:
+				push_error("Unit movement value must be positive: %s.%s" % [unit_id, movement_key])
+				return false
+		for attack_key in ["damage", "range", "detection_range", "leash_range", "attacks_per_second", "target_refresh"]:
+			if float(attack.get(attack_key, 0.0)) <= 0.0:
+				push_error("Unit attack value must be positive: %s.%s" % [unit_id, attack_key])
+				return false
+		if str(attack.get("attack_style", "")) not in ["melee", "ranged"] or str(attack.get("damage_type", "")) not in ["physical", "magic"]:
+			push_error("Unit attack classification is invalid: %s" % unit_id)
+			return false
+		if int(summon.get("run_gold_cost", 0)) <= 0 or int(summon.get("capacity_cost", 0)) <= 0:
+			push_error("Unit summon costs must be positive: %s" % unit_id)
+			return false
+		if float(formation.get("base_radius", 0.0)) <= 0.0 or int(formation.get("slots_per_ring", 0)) <= 0 or float(formation.get("ring_spacing", -1.0)) < 0.0:
+			push_error("Unit formation values are invalid: %s" % unit_id)
+			return false
+		if str(unit.get("name_key", "")).is_empty() or str(unit.get("role_key", "")).is_empty() or str(unit.get("combat_role", "")).is_empty():
+			push_error("Unit identity data is missing: %s" % unit_id)
+			return false
+		if str(presentation.get("visual_kind", "")) not in ["spearman"]:
+			push_error("Unit visual kind is invalid: %s" % unit_id)
+			return false
+		units[unit_id] = unit.duplicate(true)
+	return true
+
+
 func get_faction(faction_id: StringName) -> Dictionary:
 	return factions.get(str(faction_id), {}).duplicate(true)
 
@@ -298,6 +374,28 @@ func get_enemy_ids() -> PackedStringArray:
 	var ids := PackedStringArray()
 	for enemy_id in enemies.keys():
 		ids.append(str(enemy_id))
+	ids.sort()
+	return ids
+
+
+func get_unit(unit_id: StringName) -> Dictionary:
+	return units.get(str(unit_id), {}).duplicate(true)
+
+
+func get_unit_ids() -> PackedStringArray:
+	var ids := PackedStringArray()
+	for unit_id in units.keys():
+		ids.append(str(unit_id))
+	ids.sort()
+	return ids
+
+
+func get_unit_ids_for_faction(faction_id: StringName) -> PackedStringArray:
+	var ids := PackedStringArray()
+	for unit_id in units.keys():
+		var unit: Dictionary = units[unit_id]
+		if str(unit.get("faction_id", "")) == str(faction_id):
+			ids.append(str(unit_id))
 	ids.sort()
 	return ids
 

@@ -8,9 +8,11 @@ const EFFECTIVE_CAMERA_LIMIT := 2147480000
 const DEFEATED_ENEMY_CLEANUP_SEC := 0.7
 const DENSITY_REBALANCE_INTERVAL_SEC := 1.0
 const MAX_ENEMY_DISTANCE_FROM_KING := 1700.0
+const SPEARMAN_ID := &"dai_viet_spearman"
 
 @onready var backdrop: MovementArenaBackdrop = %Backdrop
 @onready var enemy_spawn_director: EnemySpawnDirector = %EnemySpawnDirector
+@onready var army_controller: ArmyController = %ArmyController
 @onready var king: KingController = %King
 @onready var joystick: MovementJoystick = %VirtualJoystick
 @onready var arena_title_label: Label = %ArenaTitleLabel
@@ -22,6 +24,8 @@ const MAX_ENEMY_DISTANCE_FROM_KING := 1700.0
 @onready var king_health_bar: ProgressBar = %KingHealthBar
 @onready var enemy_count_label: Label = %EnemyCountLabel
 @onready var run_gold_label: Label = %RunGoldLabel
+@onready var army_capacity_label: Label = %ArmyCapacityLabel
+@onready var summon_button: Button = %SummonButton
 @onready var control_hint_label: Label = %ControlHintLabel
 @onready var scope_hint_label: Label = %ScopeHintLabel
 @onready var target_label: Label = %TargetLabel
@@ -34,6 +38,7 @@ const MAX_ENEMY_DISTANCE_FROM_KING := 1700.0
 
 var _king_config: Dictionary = {}
 var _enemy_configs: Dictionary = {}
+var _unit_configs: Dictionary = {}
 var _training_enemies: Dictionary = {}
 var _gold_pickups: Dictionary = {}
 var _next_pickup_serial := 1
@@ -51,22 +56,35 @@ func _ready() -> void:
 
 	_king_config = ContentDatabase.get_king(&"tran_hung_dao")
 	_load_enemy_configs()
+	_load_unit_configs()
 	king.configure(_king_config)
 	king.clear_movement_bounds()
 	king.global_position = GameSessionService.get_king_position(KING_SPAWN)
 	king.restore_health(GameSessionService.get_king_health(king.health.max_health))
+	var army_capacity_data: Dictionary = _king_config.get("army_capacity", {})
+	army_controller.configure(
+		king,
+		int(army_capacity_data.get("max", 20)),
+		_unit_configs,
+		GameSessionService.get_army_state()
+	)
 	_configure_infinite_world()
 	enemy_spawn_director.spawn_requested.connect(_on_spawn_requested)
 	_restore_or_create_training_encounter()
 
 	joystick.direction_changed.connect(king.set_virtual_direction)
 	back_button.pressed.connect(_return_to_menu)
+	summon_button.pressed.connect(_summon_spearman)
 	retry_button.pressed.connect(_restart_combat_drill)
 	defeat_back_button.pressed.connect(_return_to_menu)
 	king.defeated.connect(_on_king_defeated)
 	king.health.health_changed.connect(_on_king_health_changed)
 	king.auto_attack.target_changed.connect(_on_target_changed)
 	RewardGrantService.run_gold_granted.connect(_on_run_gold_granted)
+	RewardGrantService.run_gold_spent.connect(_on_run_gold_spent)
+	army_controller.capacity_changed.connect(_on_army_capacity_changed)
+	army_controller.unit_summoned.connect(_on_unit_summoned)
+	army_controller.unit_died.connect(_on_unit_died)
 	LocalizationService.locale_changed.connect(_on_locale_changed)
 	_refresh_static_text()
 	_refresh_live_text()
@@ -91,6 +109,10 @@ func _physics_process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("summon_spearman"):
+		get_viewport().set_input_as_handled()
+		_summon_spearman()
+		return
 	if event.is_action_pressed("pause_game"):
 		get_viewport().set_input_as_handled()
 		_return_to_menu()
@@ -123,6 +145,14 @@ func _load_enemy_configs() -> void:
 		var spawn_data: Dictionary = enemy_config.get("spawn", {})
 		spawn_roster.append({"enemy_id": enemy_id, "weight": float(spawn_data.get("weight", 1.0))})
 	enemy_spawn_director.set_spawn_roster(spawn_roster)
+
+
+func _load_unit_configs() -> void:
+	_unit_configs.clear()
+	for unit_id in ContentDatabase.get_unit_ids_for_faction(GameSessionService.active_session.faction_id):
+		var unit_config := ContentDatabase.get_unit(StringName(unit_id))
+		if not unit_config.is_empty():
+			_unit_configs[unit_id] = unit_config
 
 
 func _restore_or_create_training_encounter() -> void:
@@ -240,6 +270,7 @@ func _store_combat_state() -> void:
 		gold_pickup_snapshots,
 		_next_pickup_serial
 	)
+	GameSessionService.set_army_state(army_controller.get_army_snapshot())
 
 
 func _living_enemy_count() -> int:
@@ -308,6 +339,20 @@ func _refresh_live_text() -> void:
 		"phase2.run_gold",
 		{"amount": RewardGrantService.get_run_gold()}
 	)
+	army_capacity_label.text = LocalizationService.translate_key(
+		"phase4.army_capacity",
+		{"used": army_controller.get_used_capacity(), "max": army_controller.maximum_capacity}
+	)
+	var spearman_config: Dictionary = _unit_configs.get(str(SPEARMAN_ID), {})
+	var summon_data: Dictionary = spearman_config.get("summon", {})
+	summon_button.text = LocalizationService.translate_key(
+		"phase4.summon_spearman",
+		{
+			"cost": int(summon_data.get("run_gold_cost", 0)),
+			"capacity": int(summon_data.get("capacity_cost", 0)),
+		}
+	)
+	summon_button.disabled = not army_controller.can_summon(SPEARMAN_ID)
 	var current_target := king.auto_attack.get_current_target()
 	if is_instance_valid(current_target) and current_target.is_combat_alive():
 		target_label.text = LocalizationService.translate_key(
@@ -354,10 +399,40 @@ func _on_run_gold_granted(_amount: int, _total: int, _context: Dictionary) -> vo
 	_refresh_live_text()
 
 
+func _on_run_gold_spent(_amount: int, _total: int, _context: Dictionary) -> void:
+	_refresh_live_text()
+
+
+func _summon_spearman() -> void:
+	var result := army_controller.try_summon(SPEARMAN_ID)
+	if bool(result.get("accepted", false)):
+		_store_combat_state()
+	_refresh_live_text()
+
+
+func _on_army_capacity_changed(_used: int, _maximum: int) -> void:
+	_refresh_live_text()
+
+
+func _on_unit_summoned(_unit: SummonedUnitController) -> void:
+	_store_combat_state()
+	_refresh_live_text()
+
+
+func _on_unit_died(_unit_id: StringName, _context: Dictionary) -> void:
+	_store_combat_state()
+	_refresh_live_text()
+
+
 func _on_king_defeated(_context: Dictionary) -> void:
 	joystick.reset()
 	king.set_virtual_direction(Vector2.ZERO)
 	enemy_spawn_director.set_active(false)
+	army_controller.set_combat_enabled(false)
+	for enemy_value in _training_enemies.values():
+		var enemy := enemy_value as GoblinController
+		if is_instance_valid(enemy):
+			enemy.set_target(king)
 	death_overlay.visible = true
 	_store_combat_state()
 	_refresh_live_text()
@@ -387,5 +462,6 @@ func _return_to_menu() -> void:
 	joystick.reset()
 	king.set_virtual_direction(Vector2.ZERO)
 	enemy_spawn_director.set_active(false)
+	army_controller.set_combat_enabled(false)
 	_store_combat_state()
 	SceneService.change_scene_to_file("res://scenes/menus/main_menu.tscn")

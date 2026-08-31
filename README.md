@@ -4,7 +4,7 @@ Top-down historical-fantasy survivor with army building, roguelite runs, and per
 
 Rise as a legendary ruler, survive enemy hordes, command ancient armies, collect gold, unlock skills, summon iconic warriors, and defeat colossal bosses.
 
-## Phase 3 combat population status
+## Phase 4 army summoning status
 
 This repository contains the technical foundation and the first playable combat slice:
 
@@ -26,11 +26,16 @@ This repository contains the technical foundation and the first playable combat 
 - nearest-target selection and automatic King attacks;
 - one shared damage resolver for King and enemy damage;
 - bright run Gold drops, collection through one reward service, and a yellow HUD counter;
+- centralized run Gold spending with no mixing into persistent account Gold;
+- data-driven Đại Việt Spearman summoning for 15 run Gold and 2 Army Capacity;
+- a visible touch/keyboard summon control and a 20-point King Army Capacity;
+- allied health, armor, formation following, automatic targeting, attacks, death events, and blue health bars;
+- Goblin retaliation against allied attackers and Continue snapshots for the living army;
 - localized combat HUD, defeat/retry flow, desktop Exit Game button, and in-memory Continue state;
 - desktop and web export presets;
 - headless smoke tests.
 
-XP, Run Level, level-up cards, and summoning remain later Phase 3 slices.
+XP, Run Level, level-up cards, Crossbowmen, and advanced formations remain later slices.
 
 ## Toolchain
 

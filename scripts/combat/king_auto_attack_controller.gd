@@ -87,7 +87,9 @@ func _attack_current_target() -> void:
 		attack_damage,
 		{
 			"source_kind": "king",
+			"source_team": "player",
 			"source_id": str(_host.king_id),
+			"source_node": _host,
 			"weapon_archetype_id": str(weapon_archetype_id),
 			"attack_style": attack_style,
 			"target_kind": "enemy",

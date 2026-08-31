@@ -23,7 +23,8 @@ var attacks_per_second := 0.87
 var attack_style := "melee"
 var damage_type := "physical"
 
-var _target: KingController
+var _primary_target: Node2D
+var _target: Node2D
 var _cooldown_remaining := 0.0
 var _combat_enabled := true
 var _engaged := false
@@ -41,7 +42,8 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_cooldown_remaining = maxf(_cooldown_remaining - delta, 0.0)
-	if not _combat_enabled or not is_combat_alive() or not is_instance_valid(_target) or not _target.is_combat_alive():
+	_refresh_target_fallback()
+	if not _combat_enabled or not is_combat_alive() or not _is_target_alive(_target):
 		_stop_moving()
 		return
 
@@ -94,8 +96,14 @@ func configure(
 	_set_engaged(restored_engaged)
 
 
-func set_target(new_target: KingController) -> void:
+func set_target(new_target: Node2D) -> void:
+	_primary_target = new_target
 	_target = new_target
+
+
+func set_retaliation_target(new_target: Node2D) -> void:
+	if _is_target_alive(new_target):
+		_target = new_target
 
 
 func set_combat_enabled(enabled: bool) -> void:
@@ -140,21 +148,39 @@ func get_attack_cooldown() -> float:
 func _try_attack(direction: Vector2, target_distance: float) -> void:
 	if _cooldown_remaining > 0.0:
 		return
+	var target_health := _target.get("health") as HealthComponent
+	var target_defense := _target.get("defense") as DefenseComponent
+	if target_health == null:
+		return
 	_cooldown_remaining = get_attack_cooldown()
 	visual.play_attack(direction)
 	attack_visual.play(direction, target_distance)
 	DamageResolver.apply_damage(
-		_target.health,
+		target_health,
 		attack_damage,
 		{
 			"source_kind": "enemy",
 			"source_id": str(enemy_id),
 			"source_instance_id": instance_id,
-			"target_kind": "king",
+			"target_kind": "unit" if _target is SummonedUnitController else "king",
 			"damage_type": damage_type,
 			"attack_style": attack_style,
 		},
-		_target.defense
+		target_defense
+	)
+
+
+func _refresh_target_fallback() -> void:
+	if _is_target_alive(_target):
+		return
+	_target = _primary_target if _is_target_alive(_primary_target) else null
+
+
+func _is_target_alive(candidate: Node2D) -> bool:
+	return (
+		is_instance_valid(candidate)
+		and candidate.has_method("is_combat_alive")
+		and bool(candidate.call("is_combat_alive"))
 	)
 
 
@@ -183,8 +209,11 @@ func _on_health_changed(current: float, maximum: float, delta: float, context: D
 	visual.set_health(current, maximum)
 	if delta < 0.0:
 		visual.play_hurt()
-		if str(context.get("source_kind", "")) == "king":
+		if str(context.get("source_team", "")) == "player" or str(context.get("source_kind", "")) == "king":
 			_set_engaged(true)
+			var source_node: Variant = context.get("source_node", null)
+			if source_node is SummonedUnitController:
+				set_retaliation_target(source_node)
 
 
 func _on_died(context: Dictionary) -> void:

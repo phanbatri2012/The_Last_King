@@ -15,4 +15,4 @@ This slice is complete when:
 11. the HUD reports current and target enemy density;
 12. automated tests, Windows export, Web export, and browser QA pass.
 
-XP, Run Level, level-up cards, and summoning remain separate Phase 3 slices.
+Summoning is implemented by the Phase 4A slice in `phase-4.md`. XP, Run Level, and level-up cards remain separate slices.

@@ -9,17 +9,19 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	print("[TEST] The Last King Phase 3 combat population")
+	print("[TEST] The Last King Phase 4 army summoning")
 	_test_project_configuration()
 	_test_scenes_load()
 	_test_faction_roster()
 	_test_weapon_archetypes()
 	_test_king_catalog()
 	_test_enemy_catalog()
+	_test_unit_catalog()
 	_test_localization_catalogs()
 	_test_platform_adapter()
 	_test_battle_session_serialization()
 	_test_enemy_spawn_director_state()
+	_test_formation_slots()
 	_test_reward_grants()
 	_test_movement_input()
 	_test_movement_arena_layout()
@@ -30,6 +32,8 @@ func _run() -> void:
 	await _test_auto_attack_combat()
 	await _test_goblin_attack_combat()
 	await _test_goblin_ranged_magic_combat()
+	await _test_spearman_combat()
+	await _test_army_summoning_and_restore()
 	await _test_endless_respawn_and_gold_pickup()
 	await _test_desktop_menu_exit_runtime()
 	_test_pause_manager()
@@ -48,7 +52,7 @@ func _run() -> void:
 
 func _test_project_configuration() -> void:
 	_expect(ProjectSettings.get_setting("application/config/name") == "The Last King", "Project name is canonical.")
-	_expect(ProjectSettings.get_setting("application/config/version") == "0.3.0", "Game version is independent and explicit.")
+	_expect(ProjectSettings.get_setting("application/config/version") == "0.4.0", "Game version is independent and explicit.")
 	var project_file := _read_text("res://project.godot")
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
@@ -63,6 +67,8 @@ func _test_project_configuration() -> void:
 	for action_name in ["move_left", "move_right", "move_up", "move_down"]:
 		_expect(InputMap.has_action(action_name), "Movement input action exists: %s" % action_name)
 		_expect(not InputMap.action_get_events(action_name).is_empty(), "Movement input action has bindings: %s" % action_name)
+	_expect(InputMap.has_action("summon_spearman"), "Desktop summon input action exists.")
+	_expect(not InputMap.action_get_events("summon_spearman").is_empty(), "Desktop summon action has a keyboard binding.")
 
 
 func _test_scenes_load() -> void:
@@ -70,12 +76,14 @@ func _test_scenes_load() -> void:
 	var main_menu := load("res://scenes/menus/main_menu.tscn")
 	var king := load("res://scenes/gameplay/king.tscn")
 	var goblin := load("res://scenes/gameplay/goblin.tscn")
+	var summoned_unit := load("res://scenes/gameplay/summoned_unit.tscn")
 	var run_gold_pickup := load("res://scenes/gameplay/run_gold_pickup.tscn")
 	var movement_arena := load("res://scenes/gameplay/movement_arena.tscn")
 	_expect(bootstrap is PackedScene, "Bootstrap scene loads.")
 	_expect(main_menu is PackedScene, "Main menu scene loads.")
 	_expect(king is PackedScene, "King scene loads.")
 	_expect(goblin is PackedScene, "Goblin scene loads.")
+	_expect(summoned_unit is PackedScene, "Summoned unit scene loads.")
 	_expect(run_gold_pickup is PackedScene, "Run Gold pickup scene loads.")
 	_expect(movement_arena is PackedScene, "Movement arena scene loads.")
 
@@ -140,9 +148,11 @@ func _test_king_catalog() -> void:
 	var health: Dictionary = king.get("health", {})
 	var defense: Dictionary = king.get("defense", {})
 	var attack: Dictionary = king.get("attack", {})
+	var army_capacity: Dictionary = king.get("army_capacity", {})
 	_expect(float(health.get("max", 0.0)) > 0.0, "King maximum health is positive.")
 	_expect(float(defense.get("armor", -1.0)) >= 0.0, "King armor is non-negative.")
 	_expect(float(defense.get("magic_resistance", -1.0)) >= 0.0, "King magic resistance is non-negative.")
+	_expect(int(army_capacity.get("max", 0)) == 20, "Trần Hưng Đạo starts with twenty Army Capacity.")
 	for combat_key in ["damage", "range", "cooldown", "target_refresh"]:
 		_expect(float(attack.get(combat_key, 0.0)) > 0.0, "King attack value is positive: %s" % combat_key)
 	if weapon_archetypes.has(weapon_archetype_id):
@@ -261,6 +271,42 @@ func _test_enemy_catalog() -> void:
 	_expect(seen_damage_types.has("physical") and seen_damage_types.has("magic"), "Goblin roster includes physical and magic damage.")
 
 
+func _test_unit_catalog() -> void:
+	var catalog := _load_json("res://data/units/units.json")
+	var english := _load_json("res://localization/en-US/common.json")
+	var vietnamese := _load_json("res://localization/vi-VN/common.json")
+	_expect(int(catalog.get("schema_version", 0)) == 1, "Unit catalog schema is versioned.")
+	_expect(str(catalog.get("content_version", "")).begins_with("phase4"), "Unit catalog identifies Phase 4 content.")
+	var units: Array = catalog.get("units", [])
+	_expect(units.size() == 1, "Phase 4A starts with one summonable allied unit type.")
+	if units.is_empty() or not units[0] is Dictionary:
+		return
+	var spearman: Dictionary = units[0]
+	_expect(spearman.get("id") == "dai_viet_spearman", "Dai Viet Spearman uses a stable unit ID.")
+	_expect(spearman.get("faction_id") == "dai_viet", "Dai Viet Spearman belongs to the Dai Viet faction.")
+	_expect(english.has(str(spearman.get("name_key", ""))) and vietnamese.has(str(spearman.get("name_key", ""))), "Spearman name is localized.")
+	_expect(english.has(str(spearman.get("role_key", ""))) and vietnamese.has(str(spearman.get("role_key", ""))), "Spearman role is localized.")
+	var health: Dictionary = spearman.get("health", {})
+	var defense: Dictionary = spearman.get("defense", {})
+	var movement: Dictionary = spearman.get("movement", {})
+	var attack: Dictionary = spearman.get("attack", {})
+	var summon: Dictionary = spearman.get("summon", {})
+	var formation: Dictionary = spearman.get("formation", {})
+	_expect(float(health.get("max", 0.0)) > 0.0, "Spearman health is positive.")
+	_expect(float(defense.get("armor", -1.0)) >= 0.0 and float(defense.get("magic_resistance", -1.0)) >= 0.0, "Spearman defenses are non-negative.")
+	_expect(float(movement.get("speed", 0.0)) > 0.0 and float(movement.get("collision_radius", 0.0)) > 0.0, "Spearman movement values are positive.")
+	for attack_key in ["damage", "range", "detection_range", "leash_range", "attacks_per_second", "target_refresh"]:
+		_expect(float(attack.get(attack_key, 0.0)) > 0.0, "Spearman attack value is positive: %s" % attack_key)
+	_expect(attack.get("attack_style") == "melee" and attack.get("damage_type") == "physical", "Spearman uses melee physical damage.")
+	_expect(int(summon.get("run_gold_cost", 0)) > 0, "Spearman has a positive run Gold summon cost.")
+	_expect(int(summon.get("capacity_cost", 0)) == 2, "Spearman consumes two Army Capacity.")
+	_expect(int(formation.get("slots_per_ring", 0)) > 0 and float(formation.get("base_radius", 0.0)) > 0.0, "Spearman formation is data-driven.")
+	var content_database := root.get_node("ContentDatabase")
+	_expect(content_database.initialize(), "Content database validates the unit catalog at startup.")
+	_expect(content_database.get_unit(&"dai_viet_spearman").get("id") == "dai_viet_spearman", "Content database indexes the Spearman.")
+	_expect(content_database.get_unit_ids_for_faction(&"dai_viet").has("dai_viet_spearman"), "Content database queries units by faction.")
+
+
 func _test_localization_catalogs() -> void:
 	var english := _load_json("res://localization/en-US/common.json")
 	var vietnamese := _load_json("res://localization/vi-VN/common.json")
@@ -310,6 +356,7 @@ func _test_battle_session_serialization() -> void:
 	var king_state: Dictionary = snapshot.get("king_state", {})
 	_expect(king_state.get("health") is Dictionary, "Battle session snapshots the King health state.")
 	_expect(snapshot.get("enemy_wave_state") is Dictionary, "Battle session reserves enemy combat state.")
+	_expect(snapshot.get("army") is Array, "Battle session snapshots summoned allied units.")
 
 
 func _test_enemy_spawn_director_state() -> void:
@@ -336,6 +383,22 @@ func _test_enemy_spawn_director_state() -> void:
 	target.free()
 
 
+func _test_formation_slots() -> void:
+	var formation := {
+		"base_radius": 150.0,
+		"slots_per_ring": 4,
+		"ring_spacing": 50.0,
+		"angle_offset_degrees": -90.0,
+	}
+	var first := FormationSlotCalculator.ring_slot(0, formation)
+	var second := FormationSlotCalculator.ring_slot(1, formation)
+	var fifth := FormationSlotCalculator.ring_slot(4, formation)
+	_expect(is_equal_approx(first.length(), 150.0), "First formation ring uses its data-driven radius.")
+	_expect(first.distance_to(second) > 100.0, "Adjacent formation slots do not overlap.")
+	_expect(is_equal_approx(fifth.length(), 200.0), "Overflow units move to the next formation ring.")
+	_expect(FormationSlotCalculator.ring_slot(-5, formation).is_equal_approx(first), "Formation slot calculator safely clamps negative indices.")
+
+
 func _test_reward_grants() -> void:
 	var game_session_service := root.get_node("GameSessionService")
 	var reward_grant_service := root.get_node("RewardGrantService")
@@ -344,8 +407,13 @@ func _test_reward_grants() -> void:
 	_expect(reward_grant_service.get_run_gold() == 3, "Granted run Gold is stored in the active battle only.")
 	_expect(reward_grant_service.grant_run_gold(0) == 0, "Reward service rejects non-positive run Gold.")
 	_expect(reward_grant_service.get_run_gold() == 3, "Rejected rewards do not alter run Gold.")
+	_expect(reward_grant_service.try_spend_run_gold(2, {"sink": "test"}), "Central run currency service accepts an affordable spend.")
+	_expect(reward_grant_service.get_run_gold() == 1, "Run Gold spending updates only the active battle currency.")
+	_expect(not reward_grant_service.try_spend_run_gold(2), "Central run currency service rejects an unaffordable spend.")
+	_expect(reward_grant_service.get_run_gold() == 1, "Rejected spending does not alter run Gold.")
 	game_session_service.end_session({"reason": "test_complete"})
 	_expect(reward_grant_service.grant_run_gold(3) == 0, "Reward service rejects grants without an active battle.")
+	_expect(not reward_grant_service.try_spend_run_gold(1), "Reward service rejects spending without an active battle.")
 
 
 func _test_movement_input() -> void:
@@ -400,6 +468,17 @@ func _test_movement_arena_layout() -> void:
 	var spawn_director := arena.get_node("EnemySpawnDirector") as EnemySpawnDirector
 	_expect(spawn_director != null and spawn_director.base_population == 9, "Combat arena starts with a moderate nine-Goblin population.")
 	_expect(spawn_director != null and spawn_director.maximum_population == 15, "Combat arena caps simultaneous Goblins at fifteen.")
+	var army_controller := arena.get_node("ArmyController") as ArmyController
+	_expect(army_controller != null, "Combat arena owns an ordinary ArmyController node.")
+	var summon_button := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/SummonButton") as Button
+	_expect(summon_button != null and summon_button.custom_minimum_size.y >= 48.0, "Summon button meets the touch target baseline.")
+	var army_capacity_label := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/ArmyCapacityLabel") as Label
+	_expect(army_capacity_label != null, "Combat HUD displays Army Capacity.")
+	_expect(
+		not SummonedUnitPlaceholderVisual.HEALTH_BAR_FILL_COLOR.is_equal_approx(KingPlaceholderVisual.HEALTH_BAR_FILL_COLOR)
+		and not SummonedUnitPlaceholderVisual.HEALTH_BAR_FILL_COLOR.is_equal_approx(GoblinPlaceholderVisual.HEALTH_BAR_FILL_COLOR),
+		"Summoned units use a health bar color distinct from King and Goblins."
+	)
 	var death_overlay := arena.get_node("HudLayer/DeathOverlay") as Control
 	_expect(death_overlay != null, "Combat HUD contains the defeat overlay.")
 	var retry_button := arena.get_node("HudLayer/DeathOverlay/Center/Panel/Content/RetryButton") as Button
@@ -731,6 +810,100 @@ func _test_goblin_ranged_magic_combat() -> void:
 	await process_frame
 
 
+func _test_spearman_combat() -> void:
+	var packed_king := load("res://scenes/gameplay/king.tscn") as PackedScene
+	var packed_goblin := load("res://scenes/gameplay/goblin.tscn") as PackedScene
+	var packed_unit := load("res://scenes/gameplay/summoned_unit.tscn") as PackedScene
+	if packed_king == null or packed_goblin == null or packed_unit == null:
+		_expect(false, "Spearman combat fixtures load.")
+		return
+	var king := packed_king.instantiate() as KingController
+	var goblin := packed_goblin.instantiate() as GoblinController
+	var spearman := packed_unit.instantiate() as SummonedUnitController
+	king.global_position = Vector2.ZERO
+	spearman.global_position = Vector2(600.0, 0.0)
+	goblin.global_position = Vector2(660.0, 0.0)
+	root.add_child(king)
+	root.add_child(goblin)
+	root.add_child(spearman)
+	await process_frame
+	king.follow_camera.enabled = false
+	king.set_keyboard_enabled(false)
+	king.set_movement_enabled(false)
+	var king_data: Dictionary = _load_json("res://data/kings/kings.json").get("kings", [])[0]
+	var enemy_data: Dictionary = _load_json("res://data/enemies/enemies.json").get("enemies", [])[0]
+	var unit_data: Dictionary = _load_json("res://data/units/units.json").get("units", [])[0]
+	king.configure(king_data)
+	king.auto_attack.set_combat_enabled(false)
+	goblin.configure(enemy_data, "spearman_target_goblin")
+	goblin.set_target(king)
+	spearman.configure(unit_data, "ally_combat_test", king)
+	spearman.set_formation_offset(Vector2(600.0, 0.0))
+	var goblin_starting_health := goblin.health.current_health
+	var spearman_starting_health := spearman.health.current_health
+	for _frame in 12:
+		await physics_frame
+	_expect(goblin.health.current_health < goblin_starting_health, "Summoned Spearman automatically attacks a nearby Goblin.")
+	_expect(goblin.is_engaged(), "A Goblin becomes engaged when an allied unit attacks outside its hatred range.")
+	_expect(spearman.health.current_health < spearman_starting_health, "An alerted Goblin can retaliate against the allied attacker.")
+	_expect(is_equal_approx(spearman.visual.get_health_ratio(), spearman.health.get_ratio()), "Spearman overhead health follows its health component.")
+	_expect(spearman.get_formation_world_position().is_equal_approx(Vector2(600.0, 0.0)), "Spearman owns a King-relative formation slot.")
+	king.queue_free()
+	goblin.queue_free()
+	spearman.queue_free()
+	await process_frame
+
+
+func _test_army_summoning_and_restore() -> void:
+	var game_session_service := root.get_node("GameSessionService")
+	var reward_grant_service := root.get_node("RewardGrantService")
+	var content_database := root.get_node("ContentDatabase")
+	game_session_service.start_session(&"tran_hung_dao", &"dai_viet", 13579)
+	var packed_king := load("res://scenes/gameplay/king.tscn") as PackedScene
+	var king := packed_king.instantiate() as KingController
+	root.add_child(king)
+	await process_frame
+	king.follow_camera.enabled = false
+	king.set_keyboard_enabled(false)
+	king.set_movement_enabled(false)
+	king.auto_attack.set_combat_enabled(false)
+	king.configure(content_database.get_king(&"tran_hung_dao"))
+	king.auto_attack.set_combat_enabled(false)
+	var unit_configs := {"dai_viet_spearman": content_database.get_unit(&"dai_viet_spearman")}
+	var army := ArmyController.new()
+	root.add_child(army)
+	army.configure(king, 4, unit_configs)
+	var spearman_cost := int(unit_configs["dai_viet_spearman"].get("summon", {}).get("run_gold_cost", 0))
+	reward_grant_service.grant_run_gold(spearman_cost * 3, {"source_id": "army_test"})
+	var first_result := army.try_summon(&"dai_viet_spearman")
+	var second_result := army.try_summon(&"dai_viet_spearman")
+	var blocked_result := army.try_summon(&"dai_viet_spearman")
+	_expect(bool(first_result.get("accepted", false)) and bool(second_result.get("accepted", false)), "Army controller summons affordable Spearmen.")
+	_expect(not bool(blocked_result.get("accepted", true)) and blocked_result.get("reason") == "capacity_full", "Army Capacity blocks summons beyond the configured maximum.")
+	_expect(army.get_living_unit_count() == 2, "Army controller tracks living summoned units.")
+	_expect(army.get_used_capacity() == 4, "Two Spearmen consume four Army Capacity.")
+	_expect(reward_grant_service.get_run_gold() == spearman_cost, "Successful summons spend run Gold while a blocked summon does not.")
+	var units := army.get_units()
+	DamageResolver.apply_damage(units[0].health, 20.0, {"damage_type": "physical"}, units[0].defense)
+	var restored_health := units[0].health.current_health
+	var snapshot := army.get_army_snapshot()
+	game_session_service.set_army_state(snapshot)
+	_expect(snapshot.size() == 2 and game_session_service.get_army_state().size() == 2, "Army snapshots are stored in the active BattleSession.")
+	army.queue_free()
+	await process_frame
+	var restored_army := ArmyController.new()
+	root.add_child(restored_army)
+	restored_army.configure(king, 4, unit_configs, game_session_service.get_army_state())
+	_expect(restored_army.get_living_unit_count() == 2, "Continue restores every living summoned Spearman.")
+	_expect(restored_army.get_used_capacity() == 4, "Continue restores used Army Capacity.")
+	var restored_units := restored_army.get_units()
+	_expect(is_equal_approx(restored_units[0].health.current_health, restored_health), "Continue restores allied unit health.")
+	restored_army.queue_free()
+	king.queue_free()
+	await process_frame
+	game_session_service.end_session({"reason": "test_complete"})
+
+
 func _test_endless_respawn_and_gold_pickup() -> void:
 	var game_session_service := root.get_node("GameSessionService")
 	var reward_grant_service := root.get_node("RewardGrantService")
@@ -788,6 +961,18 @@ func _test_endless_respawn_and_gold_pickup() -> void:
 		for _frame in 3:
 			await physics_frame
 		_expect(reward_grant_service.get_run_gold() == expected_gold, "King collects the dropped run Gold through Area2D overlap.")
+	var spearman_config: Dictionary = root.get_node("ContentDatabase").get_unit(&"dai_viet_spearman")
+	var summon_cost := int(spearman_config.get("summon", {}).get("run_gold_cost", 0))
+	var missing_gold := maxi(summon_cost - reward_grant_service.get_run_gold(), 0)
+	if missing_gold > 0:
+		reward_grant_service.grant_run_gold(missing_gold, {"source_id": "summon_ui_test"})
+	var arena_army := arena.get_node("ArmyController") as ArmyController
+	var summon_button := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/SummonButton") as Button
+	_expect(not summon_button.disabled, "Summon button enables when Gold and Army Capacity are available.")
+	summon_button.pressed.emit()
+	arena_army.set_combat_enabled(false)
+	_expect(arena_army.get_living_unit_count() == 1, "Combat HUD summons a Spearman into the battle-owned army.")
+	_expect(reward_grant_service.get_run_gold() == 0, "HUD summoning spends the configured run Gold cost.")
 	for _frame in 110:
 		await physics_frame
 		for child in arena.get_children():

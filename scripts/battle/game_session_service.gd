@@ -112,6 +112,18 @@ func get_enemy_combat_state() -> Dictionary:
 	return active_session.enemy_wave_state.duplicate(true)
 
 
+func set_army_state(units: Array[Dictionary]) -> void:
+	if active_session == null:
+		return
+	active_session.army = units.duplicate(true)
+
+
+func get_army_state() -> Array[Dictionary]:
+	if active_session == null:
+		return []
+	return active_session.army.duplicate(true)
+
+
 func _on_pause_state_changed(paused: bool) -> void:
 	game_clock.paused = paused
 	if active_session != null:

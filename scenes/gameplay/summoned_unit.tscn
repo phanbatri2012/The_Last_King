@@ -1,0 +1,45 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/summoned_unit_controller.gd" id="1_controller"]
+[ext_resource type="Script" path="res://scripts/gameplay/summoned_unit_placeholder_visual.gd" id="2_visual"]
+[ext_resource type="Script" path="res://scripts/combat/health_component.gd" id="3_health"]
+[ext_resource type="Script" path="res://scripts/combat/defense_component.gd" id="4_defense"]
+
+[sub_resource type="CircleShape2D" id="CircleUnit"]
+radius = 17.0
+
+[sub_resource type="CircleShape2D" id="CircleDetection"]
+radius = 270.0
+
+[node name="SummonedUnit" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 2
+script = ExtResource("1_controller")
+
+[node name="Visual" type="Node2D" parent="."]
+unique_name_in_owner = true
+z_index = 2
+script = ExtResource("2_visual")
+
+[node name="CollisionShape" type="CollisionShape2D" parent="."]
+unique_name_in_owner = true
+shape = SubResource("CircleUnit")
+
+[node name="Health" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("3_health")
+max_health = 150.0
+
+[node name="Defense" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("4_defense")
+
+[node name="DetectionArea" type="Area2D" parent="."]
+unique_name_in_owner = true
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+
+[node name="DetectionShape" type="CollisionShape2D" parent="DetectionArea"]
+unique_name_in_owner = true
+shape = SubResource("CircleDetection")

@@ -1,10 +1,11 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scenes/gameplay/movement_arena.gd" id="1_arena"]
 [ext_resource type="Script" path="res://scripts/gameplay/movement_arena_backdrop.gd" id="2_backdrop"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/king.tscn" id="3_king"]
 [ext_resource type="Script" path="res://scripts/input/virtual_joystick.gd" id="4_joystick"]
 [ext_resource type="Script" path="res://scripts/battle/enemy_spawn_director.gd" id="5_spawn"]
+[ext_resource type="Script" path="res://scripts/battle/army_controller.gd" id="6_army"]
 
 [sub_resource type="StyleBoxFlat" id="StyleHudPanel"]
 bg_color = Color(0.025, 0.034, 0.045, 0.92)
@@ -97,6 +98,18 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
+[sub_resource type="StyleBoxFlat" id="StyleSummonButton"]
+bg_color = Color(0.08, 0.24, 0.34, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.91, 0.69, 0.2, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
 [node name="MovementArena" type="Node2D"]
 script = ExtResource("1_arena")
 
@@ -111,6 +124,10 @@ script = ExtResource("5_spawn")
 
 [node name="King" parent="." instance=ExtResource("3_king")]
 unique_name_in_owner = true
+
+[node name="ArmyController" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("6_army")
 
 [node name="HudLayer" type="CanvasLayer" parent="."]
 
@@ -243,6 +260,44 @@ offset_bottom = -26.0
 grow_vertical = 0
 mouse_default_cursor_shape = 6
 script = ExtResource("4_joystick")
+
+[node name="SummonMargin" type="MarginContainer" parent="HudLayer/Hud"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -286.0
+offset_top = -190.0
+offset_right = -26.0
+offset_bottom = -26.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="SummonPanel" type="PanelContainer" parent="HudLayer/Hud/SummonMargin"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleHintPanel")
+
+[node name="SummonContent" type="VBoxContainer" parent="HudLayer/Hud/SummonMargin/SummonPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ArmyCapacityLabel" type="Label" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.82, 0.98, 1)
+theme_override_font_sizes/font_size = 16
+text = "phase4.army_capacity"
+horizontal_alignment = 1
+
+[node name="SummonButton" type="Button" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 72)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleSummonButton")
+text = "phase4.summon_spearman"
 
 [node name="HintMargin" type="MarginContainer" parent="HudLayer/Hud"]
 layout_mode = 1

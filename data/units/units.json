@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "content_version": "phase4.0",
+  "units": [
+    {
+      "id": "dai_viet_spearman",
+      "faction_id": "dai_viet",
+      "name_key": "unit.dai_viet_spearman.name",
+      "role_key": "unit.role.anti_charge",
+      "status": "active",
+      "combat_role": "melee_anti_charge",
+      "health": {"max": 150.0},
+      "defense": {"armor": 9.0, "magic_resistance": 3.0},
+      "movement": {"speed": 285.0, "collision_radius": 17.0},
+      "attack": {
+        "damage": 24.0,
+        "damage_type": "physical",
+        "attack_style": "melee",
+        "range": 70.0,
+        "detection_range": 270.0,
+        "leash_range": 330.0,
+        "attacks_per_second": 1.05,
+        "target_refresh": 0.16
+      },
+      "summon": {"run_gold_cost": 15, "capacity_cost": 2},
+      "formation": {
+        "role": "outer_ring",
+        "base_radius": 155.0,
+        "slots_per_ring": 8,
+        "ring_spacing": 48.0,
+        "angle_offset_degrees": -90.0
+      },
+      "presentation": {
+        "visual_kind": "spearman",
+        "body_color": "#315f88",
+        "accent_color": "#e0b847"
+      }
+    }
+  ]
+}

@@ -25,6 +25,7 @@ var _movement_bounds_enabled := false
 
 func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
+	add_to_group("combat_allies")
 	health.health_changed.connect(_on_health_changed)
 	health.died.connect(_on_died)
 	_apply_collision_radius()

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The Last King Unit Catalog",
+  "type": "object",
+  "required": ["schema_version", "content_version", "units"],
+  "properties": {
+    "schema_version": {"type": "integer", "minimum": 1},
+    "content_version": {"type": "string", "minLength": 1},
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "faction_id", "name_key", "role_key", "status", "combat_role", "health", "defense", "movement", "attack", "summon", "formation", "presentation"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
+          "faction_id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
+          "name_key": {"type": "string", "minLength": 1},
+          "role_key": {"type": "string", "minLength": 1},
+          "status": {"type": "string", "minLength": 1},
+          "combat_role": {"type": "string", "minLength": 1},
+          "health": {
+            "type": "object",
+            "required": ["max"],
+            "properties": {"max": {"type": "number", "exclusiveMinimum": 0}},
+            "additionalProperties": false
+          },
+          "defense": {
+            "type": "object",
+            "required": ["armor", "magic_resistance"],
+            "properties": {
+              "armor": {"type": "number", "minimum": 0},
+              "magic_resistance": {"type": "number", "minimum": 0}
+            },
+            "additionalProperties": false
+          },
+          "movement": {
+            "type": "object",
+            "required": ["speed", "collision_radius"],
+            "properties": {
+              "speed": {"type": "number", "exclusiveMinimum": 0},
+              "collision_radius": {"type": "number", "exclusiveMinimum": 0}
+            },
+            "additionalProperties": false
+          },
+          "attack": {
+            "type": "object",
+            "required": ["damage", "damage_type", "attack_style", "range", "detection_range", "leash_range", "attacks_per_second", "target_refresh"],
+            "properties": {
+              "damage": {"type": "number", "exclusiveMinimum": 0},
+              "damage_type": {"enum": ["physical", "magic"]},
+              "attack_style": {"enum": ["melee", "ranged"]},
+              "range": {"type": "number", "exclusiveMinimum": 0},
+              "detection_range": {"type": "number", "exclusiveMinimum": 0},
+              "leash_range": {"type": "number", "exclusiveMinimum": 0},
+              "attacks_per_second": {"type": "number", "exclusiveMinimum": 0},
+              "target_refresh": {"type": "number", "exclusiveMinimum": 0}
+            },
+            "additionalProperties": false
+          },
+          "summon": {
+            "type": "object",
+            "required": ["run_gold_cost", "capacity_cost"],
+            "properties": {
+              "run_gold_cost": {"type": "integer", "minimum": 1},
+              "capacity_cost": {"type": "integer", "minimum": 1}
+            },
+            "additionalProperties": false
+          },
+          "formation": {
+            "type": "object",
+            "required": ["role", "base_radius", "slots_per_ring", "ring_spacing", "angle_offset_degrees"],
+            "properties": {
+              "role": {"type": "string", "minLength": 1},
+              "base_radius": {"type": "number", "exclusiveMinimum": 0},
+              "slots_per_ring": {"type": "integer", "minimum": 1},
+              "ring_spacing": {"type": "number", "minimum": 0},
+              "angle_offset_degrees": {"type": "number"}
+            },
+            "additionalProperties": false
+          },
+          "presentation": {
+            "type": "object",
+            "required": ["visual_kind", "body_color", "accent_color"],
+            "properties": {
+              "visual_kind": {"enum": ["spearman"]},
+              "body_color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+              "accent_color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
