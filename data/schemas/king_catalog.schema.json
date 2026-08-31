@@ -11,13 +11,14 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "faction_id", "name_key", "title_key", "status", "movement", "health", "attack"],
+        "required": ["id", "faction_id", "name_key", "title_key", "status", "weapon_archetype_id", "movement", "health", "attack"],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
           "faction_id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
           "name_key": {"type": "string", "minLength": 1},
           "title_key": {"type": "string", "minLength": 1},
           "status": {"type": "string", "minLength": 1},
+          "weapon_archetype_id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
           "movement": {
             "type": "object",
             "required": ["speed", "collision_radius"],

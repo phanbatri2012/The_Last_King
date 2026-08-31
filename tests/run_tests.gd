@@ -13,6 +13,7 @@ func _run() -> void:
 	_test_project_configuration()
 	_test_scenes_load()
 	_test_faction_roster()
+	_test_weapon_archetypes()
 	_test_king_catalog()
 	_test_enemy_catalog()
 	_test_localization_catalogs()
@@ -46,7 +47,7 @@ func _run() -> void:
 
 func _test_project_configuration() -> void:
 	_expect(ProjectSettings.get_setting("application/config/name") == "The Last King", "Project name is canonical.")
-	_expect(ProjectSettings.get_setting("application/config/version") == "0.2.1", "Game version is independent and explicit.")
+	_expect(ProjectSettings.get_setting("application/config/version") == "0.2.2", "Game version is independent and explicit.")
 	var project_file := _read_text("res://project.godot")
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
@@ -110,6 +111,7 @@ func _test_faction_roster() -> void:
 
 func _test_king_catalog() -> void:
 	var catalog := _load_json("res://data/kings/kings.json")
+	var weapon_catalog := _load_json("res://data/combat/weapon_archetypes.json")
 	var english := _load_json("res://localization/en-US/common.json")
 	var vietnamese := _load_json("res://localization/vi-VN/common.json")
 	_expect(int(catalog.get("schema_version", 0)) == 1, "King catalog schema is versioned.")
@@ -121,6 +123,12 @@ func _test_king_catalog() -> void:
 	var king: Dictionary = kings[0]
 	_expect(king.get("id") == "tran_hung_dao", "Trần Hưng Đạo is the Phase 2 King.")
 	_expect(king.get("faction_id") == "dai_viet", "The Phase 2 King belongs to Dai Viet.")
+	var weapon_archetype_id := str(king.get("weapon_archetype_id", ""))
+	var weapon_archetypes: Dictionary = {}
+	for archetype_value in weapon_catalog.get("archetypes", []):
+		if archetype_value is Dictionary:
+			weapon_archetypes[str(archetype_value.get("id", ""))] = archetype_value
+	_expect(weapon_archetypes.has(weapon_archetype_id), "The Phase 2 King references a known weapon archetype.")
 	_expect(english.has(str(king.get("name_key", ""))), "King name is localized in English.")
 	_expect(vietnamese.has(str(king.get("name_key", ""))), "King name is localized in Vietnamese.")
 	_expect(english.has(str(king.get("title_key", ""))), "King title is localized in English.")
@@ -133,6 +141,61 @@ func _test_king_catalog() -> void:
 	_expect(float(health.get("max", 0.0)) > 0.0, "King maximum health is positive.")
 	for combat_key in ["damage", "range", "cooldown", "target_refresh"]:
 		_expect(float(attack.get(combat_key, 0.0)) > 0.0, "King attack value is positive: %s" % combat_key)
+	if weapon_archetypes.has(weapon_archetype_id):
+		var archetype: Dictionary = weapon_archetypes[weapon_archetype_id]
+		var damage_bounds: Dictionary = archetype.get("damage_bounds", {})
+		var range_bounds: Dictionary = archetype.get("range_bounds", {})
+		_expect(
+			float(attack.get("damage", 0.0)) >= float(damage_bounds.get("min", INF))
+			and float(attack.get("damage", 0.0)) <= float(damage_bounds.get("max", -INF)),
+			"King damage stays inside its weapon archetype bounds."
+		)
+		_expect(
+			float(attack.get("range", 0.0)) >= float(range_bounds.get("min", INF))
+			and float(attack.get("range", 0.0)) <= float(range_bounds.get("max", -INF)),
+			"King range stays inside its weapon archetype bounds."
+		)
+
+
+func _test_weapon_archetypes() -> void:
+	var catalog := _load_json("res://data/combat/weapon_archetypes.json")
+	var english := _load_json("res://localization/en-US/common.json")
+	var vietnamese := _load_json("res://localization/vi-VN/common.json")
+	_expect(int(catalog.get("schema_version", 0)) == 1, "Weapon archetype catalog is versioned.")
+	var archetypes: Array = catalog.get("archetypes", [])
+	_expect(archetypes.size() >= 4, "Sword, blade, bow, and crossbow archetypes are available.")
+	var seen_ids: Dictionary = {}
+	var lowest_melee_damage := INF
+	var highest_ranged_damage := 0.0
+	var highest_melee_range := 0.0
+	var lowest_ranged_range := INF
+	for archetype_value in archetypes:
+		_expect(archetype_value is Dictionary, "Each weapon archetype is an object.")
+		if not archetype_value is Dictionary:
+			continue
+		var archetype: Dictionary = archetype_value
+		var archetype_id := str(archetype.get("id", ""))
+		var attack_style := str(archetype.get("attack_style", ""))
+		var name_key := str(archetype.get("name_key", ""))
+		var damage_bounds: Dictionary = archetype.get("damage_bounds", {})
+		var range_bounds: Dictionary = archetype.get("range_bounds", {})
+		_expect(not seen_ids.has(archetype_id), "Weapon archetype ID is unique: %s" % archetype_id)
+		_expect(english.has(name_key) and vietnamese.has(name_key), "Weapon archetype is localized: %s" % archetype_id)
+		_expect(float(damage_bounds.get("min", 0.0)) <= float(damage_bounds.get("max", -1.0)), "Weapon damage bounds are ordered: %s" % archetype_id)
+		_expect(float(range_bounds.get("min", 0.0)) <= float(range_bounds.get("max", -1.0)), "Weapon range bounds are ordered: %s" % archetype_id)
+		if attack_style == "melee":
+			lowest_melee_damage = minf(lowest_melee_damage, float(damage_bounds.get("min", 0.0)))
+			highest_melee_range = maxf(highest_melee_range, float(range_bounds.get("max", 0.0)))
+		elif attack_style == "ranged":
+			highest_ranged_damage = maxf(highest_ranged_damage, float(damage_bounds.get("max", 0.0)))
+			lowest_ranged_range = minf(lowest_ranged_range, float(range_bounds.get("min", 0.0)))
+		else:
+			_expect(false, "Weapon attack style is supported: %s" % archetype_id)
+		seen_ids[archetype_id] = true
+	for expected_id in ["sword", "blade", "bow", "crossbow"]:
+		_expect(seen_ids.has(expected_id), "Required weapon archetype exists: %s" % expected_id)
+	_expect(lowest_melee_damage > highest_ranged_damage, "Every sword/blade damage band stays above every bow/crossbow damage band.")
+	_expect(lowest_ranged_range > highest_melee_range, "Every bow/crossbow range band stays beyond every sword/blade range band.")
 
 
 func _test_enemy_catalog() -> void:
@@ -281,6 +344,11 @@ func _test_movement_arena_layout() -> void:
 	_expect(back_button != null and back_button.custom_minimum_size.y >= 48.0, "Back button meets the touch target baseline.")
 	var health_bar := arena.get_node("HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry/KingHealthBar") as ProgressBar
 	_expect(health_bar != null, "Combat HUD contains the King health bar.")
+	_expect(
+		not KingPlaceholderVisual.HEALTH_BAR_FILL_COLOR.is_equal_approx(GoblinPlaceholderVisual.HEALTH_BAR_FILL_COLOR),
+		"King overhead health uses a distinct color from enemy health."
+	)
+	_expect(KingPlaceholderVisual.HEALTH_BAR_OFFSET_Y < -44.0, "King overhead health bar sits above the crown.")
 	var run_gold_label := arena.get_node("HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry/RunGoldLabel") as Label
 	_expect(run_gold_label != null, "Combat HUD contains the yellow run Gold counter.")
 	if run_gold_label != null:
@@ -426,6 +494,8 @@ func _test_auto_attack_combat() -> void:
 	var king_data: Dictionary = king_records[0]
 	var enemy_data: Dictionary = enemy_records[0]
 	king.configure(king_data)
+	_expect(king.weapon_archetype_id == &"sword", "Trần Hưng Đạo equips the configured sword archetype.")
+	_expect(king.auto_attack.attack_style == "melee", "Sword configures the King for melee attacks.")
 	var rapid_attack: Dictionary = king_data.get("attack", {}).duplicate(true)
 	rapid_attack["damage"] = 35.0
 	rapid_attack["cooldown"] = 0.02
@@ -443,6 +513,43 @@ func _test_auto_attack_combat() -> void:
 	_expect(not goblin.is_combat_alive(), "Repeated auto-attacks kill the Goblin through the shared resolver.")
 	king.queue_free()
 	goblin.queue_free()
+	await process_frame
+
+	var ranged_king := packed_king.instantiate() as KingController
+	root.add_child(ranged_king)
+	await process_frame
+	ranged_king.follow_camera.enabled = false
+	var ranged_data: Dictionary = king_data.duplicate(true)
+	var weapon_catalog := _load_json("res://data/combat/weapon_archetypes.json")
+	for archetype_value in weapon_catalog.get("archetypes", []):
+		if archetype_value is Dictionary and archetype_value.get("id") == "bow":
+			ranged_data["weapon_archetype_id"] = "bow"
+			ranged_data["weapon_archetype"] = archetype_value.duplicate(true)
+			break
+	var ranged_attack: Dictionary = ranged_data.get("attack", {}).duplicate(true)
+	ranged_attack["damage"] = 34.0
+	ranged_attack["range"] = 640.0
+	ranged_data["attack"] = ranged_attack
+	ranged_king.configure(ranged_data)
+	_expect(ranged_king.auto_attack.attack_style == "ranged", "Bow configures the King for ranged attacks.")
+	_expect(ranged_king.auto_attack.attack_damage < king_data.get("attack", {}).get("damage", 0.0), "Bow King attack is lower than the sword King's attack.")
+	_expect(is_equal_approx(ranged_king.auto_attack.attack_range, 640.0), "A ranged King's individual attack range is preserved.")
+	var ranged_detection := ranged_king.get_node("AutoAttack/DetectionArea/DetectionShape") as CollisionShape2D
+	var ranged_circle := ranged_detection.shape as CircleShape2D
+	_expect(is_equal_approx(ranged_circle.radius, 640.0), "Ranged attack detection expands to the configured King-specific range.")
+	var distant_goblin := packed_goblin.instantiate() as GoblinController
+	distant_goblin.global_position = ranged_king.global_position + Vector2(500.0, 0.0)
+	root.add_child(distant_goblin)
+	await process_frame
+	distant_goblin.configure(enemy_data, "ranged_integration_goblin")
+	distant_goblin.set_combat_enabled(false)
+	var distant_starting_health := distant_goblin.health.current_health
+	for _frame in 5:
+		await physics_frame
+	_expect(ranged_king.auto_attack.get_current_target() == distant_goblin, "Bow King acquires an enemy beyond every melee weapon range.")
+	_expect(distant_goblin.health.current_health < distant_starting_health, "Bow King damages an enemy at the configured long range.")
+	ranged_king.queue_free()
+	distant_goblin.queue_free()
 	await process_frame
 
 
@@ -486,6 +593,8 @@ func _test_goblin_attack_combat() -> void:
 	for _frame in 5:
 		await physics_frame
 	_expect(king.health.current_health < starting_health, "Goblin melee attacks damage the King through the shared resolver.")
+	_expect(king.visual.get_health_ratio() < 1.0, "King overhead health bar reacts to received damage.")
+	_expect(is_equal_approx(king.visual.get_health_ratio(), king.health.get_ratio()), "King overhead health ratio matches the health component.")
 	king.queue_free()
 	goblin.queue_free()
 	await process_frame

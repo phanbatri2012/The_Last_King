@@ -3,12 +3,15 @@ extends Node
 const FACTION_ROSTER_PATH := "res://data/factions/faction_roster.json"
 const KING_CATALOG_PATH := "res://data/kings/kings.json"
 const ENEMY_CATALOG_PATH := "res://data/enemies/enemies.json"
+const WEAPON_ARCHETYPE_PATH := "res://data/combat/weapon_archetypes.json"
 
 var factions: Dictionary = {}
 var kings: Dictionary = {}
 var enemies: Dictionary = {}
+var weapon_archetypes: Dictionary = {}
 var content_version := ""
 var enemy_content_version := ""
+var weapon_content_version := ""
 var _initialized := false
 
 
@@ -19,6 +22,7 @@ func initialize() -> bool:
 	factions.clear()
 	kings.clear()
 	enemies.clear()
+	weapon_archetypes.clear()
 
 	var faction_source := _load_json(FACTION_ROSTER_PATH)
 	if faction_source.is_empty() or not faction_source.get("factions", null) is Array:
@@ -32,11 +36,17 @@ func initialize() -> bool:
 	if enemy_source.is_empty() or not enemy_source.get("enemies", null) is Array:
 		push_error("Enemy catalog is missing or invalid.")
 		return false
+	var weapon_source := _load_json(WEAPON_ARCHETYPE_PATH)
+	if weapon_source.is_empty() or not weapon_source.get("archetypes", null) is Array:
+		push_error("Weapon archetype catalog is missing or invalid.")
+		return false
 
 	var id_pattern := RegEx.new()
 	id_pattern.compile("^[a-z0-9]+(?:_[a-z0-9]+)*$")
 
 	if not _index_factions(faction_source["factions"], id_pattern):
+		return false
+	if not _index_weapon_archetypes(weapon_source["archetypes"], id_pattern):
 		return false
 	if not _index_kings(king_source["kings"], id_pattern):
 		return false
@@ -50,6 +60,10 @@ func initialize() -> bool:
 	enemy_content_version = str(enemy_source.get("content_version", ""))
 	if enemy_content_version.is_empty():
 		push_error("Enemy catalog content_version is missing.")
+		return false
+	weapon_content_version = str(weapon_source.get("content_version", ""))
+	if weapon_content_version.is_empty():
+		push_error("Weapon archetype content_version is missing.")
 		return false
 
 	_initialized = true
@@ -73,6 +87,58 @@ func _index_factions(records: Array, id_pattern: RegEx) -> bool:
 	return true
 
 
+func _index_weapon_archetypes(records: Array, id_pattern: RegEx) -> bool:
+	var has_melee := false
+	var has_ranged := false
+	var lowest_melee_damage := INF
+	var highest_ranged_damage := 0.0
+	var highest_melee_range := 0.0
+	var lowest_ranged_range := INF
+	for archetype_value in records:
+		if not archetype_value is Dictionary:
+			push_error("Weapon archetype catalog contains a non-object entry.")
+			return false
+		var archetype: Dictionary = archetype_value
+		var archetype_id := str(archetype.get("id", ""))
+		var attack_style := str(archetype.get("attack_style", ""))
+		var damage_bounds: Dictionary = archetype.get("damage_bounds", {})
+		var range_bounds: Dictionary = archetype.get("range_bounds", {})
+		if id_pattern.search(archetype_id) == null:
+			push_error("Invalid weapon archetype ID: %s" % archetype_id)
+			return false
+		if weapon_archetypes.has(archetype_id):
+			push_error("Duplicate weapon archetype ID: %s" % archetype_id)
+			return false
+		if attack_style not in ["melee", "ranged"]:
+			push_error("Invalid weapon attack style: %s" % archetype_id)
+			return false
+		if not _valid_positive_bounds(damage_bounds) or not _valid_positive_bounds(range_bounds):
+			push_error("Invalid weapon balance bounds: %s" % archetype_id)
+			return false
+		if str(archetype.get("name_key", "")).is_empty() or str(archetype.get("visual_kind", "")).is_empty():
+			push_error("Weapon presentation data is missing: %s" % archetype_id)
+			return false
+		if attack_style == "melee":
+			has_melee = true
+			lowest_melee_damage = minf(lowest_melee_damage, float(damage_bounds.get("min", 0.0)))
+			highest_melee_range = maxf(highest_melee_range, float(range_bounds.get("max", 0.0)))
+		else:
+			has_ranged = true
+			highest_ranged_damage = maxf(highest_ranged_damage, float(damage_bounds.get("max", 0.0)))
+			lowest_ranged_range = minf(lowest_ranged_range, float(range_bounds.get("min", 0.0)))
+		weapon_archetypes[archetype_id] = archetype.duplicate(true)
+	if not has_melee or not has_ranged:
+		push_error("Weapon catalog must contain both melee and ranged archetypes.")
+		return false
+	if lowest_melee_damage <= highest_ranged_damage:
+		push_error("Melee weapon damage must remain above ranged weapon damage.")
+		return false
+	if lowest_ranged_range <= highest_melee_range:
+		push_error("Ranged weapon reach must remain above melee weapon reach.")
+		return false
+	return true
+
+
 func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 	for king_value in records:
 		if not king_value is Dictionary:
@@ -81,6 +147,7 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 		var king: Dictionary = king_value
 		var king_id := str(king.get("id", ""))
 		var faction_id := str(king.get("faction_id", ""))
+		var weapon_archetype_id := str(king.get("weapon_archetype_id", ""))
 		var movement_value: Variant = king.get("movement", null)
 		var health_value: Variant = king.get("health", null)
 		var attack_value: Variant = king.get("attack", null)
@@ -92,6 +159,9 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 			return false
 		if not factions.has(faction_id):
 			push_error("King references an unknown faction: %s" % faction_id)
+			return false
+		if not weapon_archetypes.has(weapon_archetype_id):
+			push_error("King references an unknown weapon archetype: %s" % weapon_archetype_id)
 			return false
 		if not movement_value is Dictionary:
 			push_error("King movement data is missing: %s" % king_id)
@@ -112,6 +182,13 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 			if float(attack.get(attack_key, 0.0)) <= 0.0:
 				push_error("King attack value must be positive: %s.%s" % [king_id, attack_key])
 				return false
+		var weapon_archetype: Dictionary = weapon_archetypes[weapon_archetype_id]
+		if not _value_inside_bounds(float(attack.get("damage", 0.0)), weapon_archetype.get("damage_bounds", {})):
+			push_error("King damage is outside its weapon archetype bounds: %s" % king_id)
+			return false
+		if not _value_inside_bounds(float(attack.get("range", 0.0)), weapon_archetype.get("range_bounds", {})):
+			push_error("King attack range is outside its weapon archetype bounds: %s" % king_id)
+			return false
 		kings[king_id] = king.duplicate(true)
 	return true
 
@@ -164,7 +241,11 @@ func get_faction_ids() -> PackedStringArray:
 
 
 func get_king(king_id: StringName) -> Dictionary:
-	return kings.get(str(king_id), {}).duplicate(true)
+	var king: Dictionary = kings.get(str(king_id), {}).duplicate(true)
+	if king.is_empty():
+		return king
+	king["weapon_archetype"] = get_weapon_archetype(StringName(str(king.get("weapon_archetype_id", ""))))
+	return king
 
 
 func get_king_ids() -> PackedStringArray:
@@ -185,6 +266,28 @@ func get_enemy_ids() -> PackedStringArray:
 		ids.append(str(enemy_id))
 	ids.sort()
 	return ids
+
+
+func get_weapon_archetype(archetype_id: StringName) -> Dictionary:
+	return weapon_archetypes.get(str(archetype_id), {}).duplicate(true)
+
+
+func get_weapon_archetype_ids() -> PackedStringArray:
+	var ids := PackedStringArray()
+	for archetype_id in weapon_archetypes.keys():
+		ids.append(str(archetype_id))
+	ids.sort()
+	return ids
+
+
+func _valid_positive_bounds(bounds: Dictionary) -> bool:
+	var minimum := float(bounds.get("min", 0.0))
+	var maximum := float(bounds.get("max", 0.0))
+	return minimum > 0.0 and maximum >= minimum
+
+
+func _value_inside_bounds(value: float, bounds: Dictionary) -> bool:
+	return value >= float(bounds.get("min", INF)) and value <= float(bounds.get("max", -INF))
 
 
 func _load_json(path: String) -> Dictionary:

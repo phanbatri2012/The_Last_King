@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "content_version": "phase2.2",
+  "archetypes": [
+    {
+      "id": "sword",
+      "name_key": "weapon.sword.name",
+      "attack_style": "melee",
+      "visual_kind": "sword",
+      "damage_bounds": {"min": 48.0, "max": 72.0},
+      "range_bounds": {"min": 160.0, "max": 250.0}
+    },
+    {
+      "id": "blade",
+      "name_key": "weapon.blade.name",
+      "attack_style": "melee",
+      "visual_kind": "blade",
+      "damage_bounds": {"min": 52.0, "max": 80.0},
+      "range_bounds": {"min": 150.0, "max": 260.0}
+    },
+    {
+      "id": "bow",
+      "name_key": "weapon.bow.name",
+      "attack_style": "ranged",
+      "visual_kind": "bow",
+      "damage_bounds": {"min": 24.0, "max": 42.0},
+      "range_bounds": {"min": 480.0, "max": 780.0}
+    },
+    {
+      "id": "crossbow",
+      "name_key": "weapon.crossbow.name",
+      "attack_style": "ranged",
+      "visual_kind": "crossbow",
+      "damage_bounds": {"min": 30.0, "max": 46.0},
+      "range_bounds": {"min": 560.0, "max": 900.0}
+    }
+  ]
+}

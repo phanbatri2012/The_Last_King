@@ -1,12 +1,18 @@
 class_name KingPlaceholderVisual
 extends Node2D
 
+const HEALTH_BAR_FILL_COLOR := Color(0.08, 0.72, 0.94, 1.0)
+const HEALTH_BAR_BORDER_COLOR := Color(1.0, 0.78, 0.2, 1.0)
+const HEALTH_BAR_OFFSET_Y := -64.0
+
 var _facing := Vector2.RIGHT
 var _moving := false
 var _step_phase := 0.0
 var _attack_pulse := 0.0
 var _hurt_flash := 0.0
 var _defeated := false
+var _health_ratio := 1.0
+var _weapon_kind := "sword"
 
 
 func _process(delta: float) -> void:
@@ -24,6 +30,20 @@ func set_motion(current_velocity: Vector2) -> void:
 	_moving = current_velocity.length_squared() > 1.0
 	if _moving:
 		_facing = current_velocity.normalized()
+
+
+func set_health(current_health: float, max_health: float) -> void:
+	_health_ratio = clampf(current_health / max_health, 0.0, 1.0) if max_health > 0.0 else 0.0
+	queue_redraw()
+
+
+func get_health_ratio() -> float:
+	return _health_ratio
+
+
+func set_weapon_kind(weapon_kind: String) -> void:
+	_weapon_kind = weapon_kind if weapon_kind in ["sword", "blade", "bow", "crossbow"] else "sword"
+	queue_redraw()
 
 
 func play_attack(direction: Vector2) -> void:
@@ -67,10 +87,7 @@ func _draw() -> void:
 	draw_circle(Vector2(0.0, 7.0), 26.0, armor_color)
 	draw_arc(Vector2(0.0, 7.0), 26.0, 0.0, TAU, 48, Color(0.88, 0.67, 0.2, 1.0), 3.0, true)
 
-	var weapon_start := _facing * 16.0 + side * 10.0 + Vector2(0.0, 8.0)
-	var weapon_end := weapon_start + _facing * (48.0 + _attack_pulse * 18.0)
-	draw_line(weapon_start, weapon_end, Color(0.82, 0.86, 0.9, 1.0), 7.0, true)
-	draw_line(weapon_start + _facing * 4.0 - side * 10.0, weapon_start + _facing * 4.0 + side * 10.0, Color(0.9, 0.68, 0.2, 1.0), 5.0, true)
+	_draw_weapon(side)
 
 	draw_circle(Vector2(0.0, -12.0), 18.0, Color(0.88, 0.68, 0.48, 1.0))
 	draw_circle(Vector2(-6.0, -14.0), 2.0, Color(0.08, 0.08, 0.1, 1.0))
@@ -89,3 +106,43 @@ func _draw() -> void:
 	draw_colored_polygon(crown_points, Color(0.96, 0.73, 0.18, 1.0))
 	draw_polyline(crown_points, Color(1.0, 0.9, 0.45, 1.0), 2.0, true)
 	draw_arc(Vector2.ZERO, 40.0, 0.0, TAU, 64, Color(0.96, 0.75, 0.24, 0.34), 2.0, true)
+
+	if not _defeated:
+		_draw_health_bar()
+
+
+func _draw_weapon(side: Vector2) -> void:
+	var weapon_start := _facing * 16.0 + side * 10.0 + Vector2(0.0, 8.0)
+	match _weapon_kind:
+		"bow":
+			var bow_center := weapon_start + _facing * 4.0
+			var upper_tip := bow_center + side * 23.0 - _facing * 7.0
+			var lower_tip := bow_center - side * 23.0 - _facing * 7.0
+			draw_polyline(PackedVector2Array([upper_tip, bow_center + _facing * 8.0, lower_tip]), Color(0.65, 0.34, 0.12, 1.0), 5.0, true)
+			draw_line(upper_tip, lower_tip, Color(0.9, 0.88, 0.72, 0.95), 2.0, true)
+			draw_line(bow_center - _facing * 8.0, bow_center + _facing * (40.0 + _attack_pulse * 10.0), Color(0.82, 0.86, 0.9, 1.0), 3.0, true)
+		"crossbow":
+			var crossbow_center := weapon_start + _facing * 8.0
+			draw_line(crossbow_center - _facing * 12.0, crossbow_center + _facing * (42.0 + _attack_pulse * 9.0), Color(0.46, 0.25, 0.1, 1.0), 7.0, true)
+			draw_line(crossbow_center - side * 22.0, crossbow_center + side * 22.0, Color(0.72, 0.42, 0.16, 1.0), 5.0, true)
+			draw_line(crossbow_center - side * 22.0, crossbow_center + _facing * 8.0, Color(0.9, 0.88, 0.72, 0.95), 2.0, true)
+			draw_line(crossbow_center + side * 22.0, crossbow_center + _facing * 8.0, Color(0.9, 0.88, 0.72, 0.95), 2.0, true)
+		"blade":
+			var blade_end := weapon_start + _facing * (52.0 + _attack_pulse * 20.0) + side * 5.0
+			draw_line(weapon_start, blade_end, Color(0.78, 0.84, 0.9, 1.0), 10.0, true)
+			draw_line(blade_end, blade_end + _facing * 9.0 - side * 5.0, Color(0.94, 0.72, 0.22, 1.0), 6.0, true)
+		_:
+			var weapon_end := weapon_start + _facing * (48.0 + _attack_pulse * 18.0)
+			draw_line(weapon_start, weapon_end, Color(0.82, 0.86, 0.9, 1.0), 7.0, true)
+			draw_line(weapon_start + _facing * 4.0 - side * 10.0, weapon_start + _facing * 4.0 + side * 10.0, Color(0.9, 0.68, 0.2, 1.0), 5.0, true)
+
+
+func _draw_health_bar() -> void:
+	var bar_rect := Rect2(-41.0, HEALTH_BAR_OFFSET_Y, 82.0, 10.0)
+	draw_rect(bar_rect, Color(0.015, 0.025, 0.04, 0.94), true)
+	draw_rect(
+		Rect2(bar_rect.position + Vector2(2.0, 2.0), Vector2((bar_rect.size.x - 4.0) * _health_ratio, bar_rect.size.y - 4.0)),
+		HEALTH_BAR_FILL_COLOR,
+		true
+	)
+	draw_rect(bar_rect, HEALTH_BAR_BORDER_COLOR, false, 2.0)

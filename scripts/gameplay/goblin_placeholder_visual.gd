@@ -1,6 +1,8 @@
 class_name GoblinPlaceholderVisual
 extends Node2D
 
+const HEALTH_BAR_FILL_COLOR := Color(0.74, 0.16, 0.12, 1.0)
+
 var _facing := Vector2.LEFT
 var _moving := false
 var _targeted := false
@@ -88,4 +90,4 @@ func _draw() -> void:
 	if not _defeated:
 		var bar_rect := Rect2(-29.0, -42.0, 58.0, 7.0)
 		draw_rect(bar_rect, Color(0.04, 0.04, 0.04, 0.88), true)
-		draw_rect(Rect2(bar_rect.position + Vector2.ONE, Vector2((bar_rect.size.x - 2.0) * _health_ratio, bar_rect.size.y - 2.0)), Color(0.74, 0.16, 0.12, 1.0), true)
+		draw_rect(Rect2(bar_rect.position + Vector2.ONE, Vector2((bar_rect.size.x - 2.0) * _health_ratio, bar_rect.size.y - 2.0)), HEALTH_BAR_FILL_COLOR, true)

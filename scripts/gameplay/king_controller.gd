@@ -15,6 +15,7 @@ signal defeated(context: Dictionary)
 @onready var auto_attack: KingAutoAttackController = %AutoAttack
 
 var king_id: StringName = &"tran_hung_dao"
+var weapon_archetype_id: StringName = &"sword"
 var _virtual_direction := Vector2.ZERO
 var _keyboard_enabled := true
 var _movement_enabled := true
@@ -26,6 +27,7 @@ func _ready() -> void:
 	health.health_changed.connect(_on_health_changed)
 	health.died.connect(_on_died)
 	_apply_collision_radius()
+	visual.set_health(health.current_health, health.max_health)
 
 
 func _physics_process(_delta: float) -> void:
@@ -45,6 +47,16 @@ func _physics_process(_delta: float) -> void:
 
 func configure(config: Dictionary) -> void:
 	king_id = StringName(str(config.get("id", king_id)))
+	weapon_archetype_id = StringName(str(config.get("weapon_archetype_id", weapon_archetype_id)))
+	var weapon_archetype_value: Variant = config.get("weapon_archetype", {})
+	var weapon_archetype: Dictionary = weapon_archetype_value if weapon_archetype_value is Dictionary else {}
+	if weapon_archetype.is_empty():
+		weapon_archetype = {
+			"id": str(weapon_archetype_id),
+			"attack_style": "melee",
+			"visual_kind": str(weapon_archetype_id),
+		}
+	visual.set_weapon_kind(str(weapon_archetype.get("visual_kind", weapon_archetype_id)))
 	var movement_value: Variant = config.get("movement", {})
 	if movement_value is Dictionary:
 		var movement: Dictionary = movement_value
@@ -55,7 +67,7 @@ func configure(config: Dictionary) -> void:
 		health.configure(float(health_value.get("max", health.max_health)))
 	var attack_value: Variant = config.get("attack", {})
 	if attack_value is Dictionary:
-		auto_attack.configure(attack_value)
+		auto_attack.configure(attack_value, weapon_archetype)
 	if is_node_ready():
 		_apply_collision_radius()
 
@@ -117,7 +129,8 @@ func _clamp_to_movement_bounds() -> void:
 	global_position = global_position.clamp(minimum, maximum)
 
 
-func _on_health_changed(_current: float, _maximum: float, delta: float, _context: Dictionary) -> void:
+func _on_health_changed(current: float, maximum: float, delta: float, _context: Dictionary) -> void:
+	visual.set_health(current, maximum)
 	if delta < 0.0:
 		visual.play_hurt()
 

@@ -6,12 +6,14 @@ signal attack_performed(target: GoblinController, applied_damage: float)
 
 @onready var detection_area: Area2D = %DetectionArea
 @onready var detection_shape: CollisionShape2D = %DetectionShape
-@onready var strike_visual: MeleeStrikeVisual = %StrikeVisual
+@onready var strike_visual: KingAttackVisual = %StrikeVisual
 
 var attack_damage := 40.0
 var attack_range := 225.0
 var attack_cooldown := 0.55
 var target_refresh_interval := 0.12
+var attack_style := "melee"
+var weapon_archetype_id: StringName = &"sword"
 
 var _host: KingController
 var _current_target: GoblinController
@@ -37,11 +39,14 @@ func _physics_process(delta: float) -> void:
 		_attack_current_target()
 
 
-func configure(config: Dictionary) -> void:
+func configure(config: Dictionary, weapon_archetype: Dictionary = {}) -> void:
 	attack_damage = float(config.get("damage", attack_damage))
 	attack_range = float(config.get("range", attack_range))
 	attack_cooldown = float(config.get("cooldown", attack_cooldown))
 	target_refresh_interval = float(config.get("target_refresh", target_refresh_interval))
+	weapon_archetype_id = StringName(str(weapon_archetype.get("id", weapon_archetype_id)))
+	attack_style = str(weapon_archetype.get("attack_style", attack_style))
+	strike_visual.configure(attack_style)
 	_apply_attack_range()
 
 
@@ -81,6 +86,8 @@ func _attack_current_target() -> void:
 		{
 			"source_kind": "king",
 			"source_id": str(_host.king_id),
+			"weapon_archetype_id": str(weapon_archetype_id),
+			"attack_style": attack_style,
 			"target_kind": "enemy",
 			"target_id": str(_current_target.enemy_id),
 			"target_instance_id": _current_target.instance_id,

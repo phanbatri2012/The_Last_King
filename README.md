@@ -14,6 +14,8 @@ This repository contains the technical foundation and the first playable combat 
 - English (US) canonical localization with Vietnamese support;
 - open-ended faction roster data;
 - data-driven Trần Hưng Đạo placeholder King;
+- cyan-and-gold overhead King health bar, visually distinct from red enemy health bars;
+- data-driven sword/blade versus bow/crossbow balance bands with King-specific attack ranges;
 - procedurally tiled infinite battlefield with a smooth unbounded camera;
 - normalized WASD/Arrow Keys and analog pointer/touch joystick movement;
 - data-driven Goblins with pursuit, melee attacks, health, death, and continuous replacements;
