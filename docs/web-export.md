@@ -10,6 +10,4 @@ The final Playables integration must also add the official YouTube SDK before ga
 
 ## GitHub Actions Web preview
 
-`.github/workflows/build-web.yml` imports, tests, and exports the project after each push to `main`, then uploads `build/pages/` as the downloadable `the-last-king-web` workflow artifact. The `Web Preview` preset intentionally uses the stock single-threaded export template available on the GitHub runner; the local `Web` preset continues to enforce the smaller custom template for YouTube Playables validation.
-
-The current GitHub plan does not support Pages while this repository is private. A public URL can be enabled later after the owner either makes the repository public or upgrades to a plan that supports private-repository Pages.
+`.github/workflows/build-web.yml` imports, tests, and exports the project after each push to `main`. It deploys `build/pages/` to [The Last King Web preview](https://phanbatri2012.github.io/The_Last_King/) and also keeps a downloadable `the-last-king-web` workflow artifact for 14 days. The `Web Preview` preset intentionally uses the stock single-threaded export template available on the GitHub runner; the local `Web` preset continues to enforce the smaller custom template for YouTube Playables validation.

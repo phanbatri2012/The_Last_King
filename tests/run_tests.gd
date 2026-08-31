@@ -51,6 +51,8 @@ func _test_project_configuration() -> void:
 	_expect(FileAccess.file_exists("res://AGENTS.md"), "Project rules exist.")
 	var export_presets := _read_text("res://export_presets.cfg")
 	_expect(export_presets.contains("name=\"Web Preview\""), "A stock-template Web preview export preset exists.")
+	var web_workflow := _read_text("res://.github/workflows/build-web.yml")
+	_expect(web_workflow.contains("actions/deploy-pages@v4"), "The Web workflow deploys the preview to GitHub Pages.")
 	for action_name in ["move_left", "move_right", "move_up", "move_down"]:
 		_expect(InputMap.has_action(action_name), "Movement input action exists: %s" % action_name)
 		_expect(not InputMap.action_get_events(action_name).is_empty(), "Movement input action has bindings: %s" % action_name)
