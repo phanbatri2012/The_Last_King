@@ -59,7 +59,7 @@ Open `project.godot` in Godot and run the project, or from PowerShell:
 
 Generated exports belong in `build/` and are not committed.
 
-After GitHub Pages is enabled for the repository, pushes to `main` publish a browser preview at `https://phanbatri2012.github.io/The_Last_King/`.
+Pushes to `main` also produce a downloadable `the-last-king-web` artifact in GitHub Actions. Public GitHub Pages deployment requires repository visibility or a plan that supports Pages.
 
 To import, test, smoke-run, export both targets, and validate the Web bundle in one command:
 

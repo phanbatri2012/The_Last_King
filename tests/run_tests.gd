@@ -47,10 +47,10 @@ func _test_project_configuration() -> void:
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
 	_expect(FileAccess.file_exists("res://export_presets.cfg"), "Export presets exist.")
-	_expect(FileAccess.file_exists("res://.github/workflows/deploy-pages.yml"), "GitHub Pages deployment workflow exists.")
+	_expect(FileAccess.file_exists("res://.github/workflows/build-web.yml"), "GitHub Actions Web artifact workflow exists.")
 	_expect(FileAccess.file_exists("res://AGENTS.md"), "Project rules exist.")
 	var export_presets := _read_text("res://export_presets.cfg")
-	_expect(export_presets.contains("name=\"Web Pages\""), "A stock-template GitHub Pages export preset exists.")
+	_expect(export_presets.contains("name=\"Web Preview\""), "A stock-template Web preview export preset exists.")
 	for action_name in ["move_left", "move_right", "move_up", "move_down"]:
 		_expect(InputMap.has_action(action_name), "Movement input action exists: %s" % action_name)
 		_expect(not InputMap.action_get_events(action_name).is_empty(), "Movement input action has bindings: %s" % action_name)
