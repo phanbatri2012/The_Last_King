@@ -1,19 +1,33 @@
 class_name EnemySpawnDirector
 extends Node
 
-signal spawn_requested(instance_id: String, world_position: Vector2)
+signal spawn_requested(instance_id: String, enemy_id: StringName, world_position: Vector2)
 
-@export_range(1, 100, 1) var target_population := 5
-@export_range(0.0, 30.0, 0.05) var respawn_delay := 1.25
-@export_range(0.0, 5.0, 0.05) var spawn_stagger := 0.2
-@export_range(1.0, 5000.0, 1.0) var minimum_spawn_radius := 620.0
-@export_range(1.0, 5000.0, 1.0) var maximum_spawn_radius := 820.0
+@export_range(1, 100, 1) var base_population := 9
+@export_range(1, 100, 1) var maximum_population := 15
+@export_range(1.0, 600.0, 1.0) var population_growth_interval := 45.0
+@export_range(0.0, 30.0, 0.05) var respawn_delay := 1.0
+@export_range(0.0, 5.0, 0.05) var spawn_stagger := 0.14
+@export_range(1.0, 5000.0, 1.0) var minimum_spawn_radius := 480.0
+@export_range(1.0, 5000.0, 1.0) var maximum_spawn_radius := 900.0
 
 var _follow_target: Node2D
 var _rng := RandomNumberGenerator.new()
+var _spawn_roster: Array[Dictionary] = []
 var _next_spawn_serial := 1
 var _pending_spawn_delays: Array[float] = []
 var _active := true
+
+
+func set_spawn_roster(spawn_roster: Array[Dictionary]) -> void:
+	_spawn_roster.clear()
+	for entry in spawn_roster:
+		var enemy_id := str(entry.get("enemy_id", ""))
+		var weight := float(entry.get("weight", 0.0))
+		if not enemy_id.is_empty() and weight > 0.0:
+			_spawn_roster.append({"enemy_id": enemy_id, "weight": weight})
+	if _spawn_roster.is_empty():
+		_spawn_roster.append({"enemy_id": "goblin", "weight": 1.0})
 
 
 func configure(seed: int, follow_target: Node2D, restored_state: Dictionary = {}) -> void:
@@ -37,13 +51,21 @@ func _physics_process(delta: float) -> void:
 		if _pending_spawn_delays[index] > 0.0:
 			continue
 		_pending_spawn_delays.remove_at(index)
-		spawn_requested.emit(_take_next_instance_id(), _take_next_spawn_position())
+		spawn_requested.emit(_take_next_instance_id(), _take_next_enemy_id(), _take_next_spawn_position())
 
 
-func ensure_population(living_population: int) -> void:
+func get_target_population(elapsed_time: float) -> int:
+	var growth_steps := floori(maxf(elapsed_time, 0.0) / maxf(population_growth_interval, 1.0))
+	return mini(base_population + growth_steps, maxi(maximum_population, base_population))
+
+
+func ensure_population(living_population: int, elapsed_time: float = 0.0, immediate: bool = false) -> void:
+	var target_population := get_target_population(elapsed_time)
 	var missing := maxi(target_population - maxi(living_population, 0) - _pending_spawn_delays.size(), 0)
+	var starting_pending_count := _pending_spawn_delays.size()
 	for index in missing:
-		_pending_spawn_delays.append(respawn_delay + spawn_stagger * float(index))
+		var base_delay := 0.0 if immediate else respawn_delay
+		_pending_spawn_delays.append(base_delay + spawn_stagger * float(starting_pending_count + index))
 
 
 func schedule_replacement(delay: float = -1.0) -> void:
@@ -70,6 +92,18 @@ func _take_next_instance_id() -> String:
 	var instance_key := "endless_goblin_%08d" % _next_spawn_serial
 	_next_spawn_serial += 1
 	return instance_key
+
+
+func _take_next_enemy_id() -> StringName:
+	var total_weight := 0.0
+	for entry in _spawn_roster:
+		total_weight += float(entry.get("weight", 0.0))
+	var roll := _rng.randf_range(0.0, total_weight)
+	for entry in _spawn_roster:
+		roll -= float(entry.get("weight", 0.0))
+		if roll <= 0.0:
+			return StringName(str(entry.get("enemy_id", "goblin")))
+	return StringName(str(_spawn_roster.back().get("enemy_id", "goblin")))
 
 
 func _take_next_spawn_position() -> Vector2:

@@ -16,6 +16,10 @@
       "health": {
         "max": 260.0
       },
+      "defense": {
+        "armor": 8.0,
+        "magic_resistance": 6.0
+      },
       "attack": {
         "damage": 56.0,
         "range": 220.0,

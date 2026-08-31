@@ -112,6 +112,9 @@ func _index_weapon_archetypes(records: Array, id_pattern: RegEx) -> bool:
 		if attack_style not in ["melee", "ranged"]:
 			push_error("Invalid weapon attack style: %s" % archetype_id)
 			return false
+		if str(archetype.get("damage_type", "")) not in ["physical", "magic"]:
+			push_error("Invalid weapon damage type: %s" % archetype_id)
+			return false
 		if not _valid_positive_bounds(damage_bounds) or not _valid_positive_bounds(range_bounds):
 			push_error("Invalid weapon balance bounds: %s" % archetype_id)
 			return false
@@ -150,6 +153,7 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 		var weapon_archetype_id := str(king.get("weapon_archetype_id", ""))
 		var movement_value: Variant = king.get("movement", null)
 		var health_value: Variant = king.get("health", null)
+		var defense_value: Variant = king.get("defense", null)
 		var attack_value: Variant = king.get("attack", null)
 		if id_pattern.search(king_id) == null:
 			push_error("Invalid King ID: %s" % king_id)
@@ -166,7 +170,7 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 		if not movement_value is Dictionary:
 			push_error("King movement data is missing: %s" % king_id)
 			return false
-		if not health_value is Dictionary or not attack_value is Dictionary:
+		if not health_value is Dictionary or not defense_value is Dictionary or not attack_value is Dictionary:
 			push_error("King combat data is missing: %s" % king_id)
 			return false
 		var movement: Dictionary = movement_value
@@ -174,9 +178,13 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 			push_error("King movement values must be positive: %s" % king_id)
 			return false
 		var health: Dictionary = health_value
+		var defense: Dictionary = defense_value
 		var attack: Dictionary = attack_value
 		if float(health.get("max", 0.0)) <= 0.0:
 			push_error("King health must be positive: %s" % king_id)
+			return false
+		if float(defense.get("armor", -1.0)) < 0.0 or float(defense.get("magic_resistance", -1.0)) < 0.0:
+			push_error("King defense values must be non-negative: %s" % king_id)
 			return false
 		for attack_key in ["damage", "range", "cooldown", "target_refresh"]:
 			if float(attack.get(attack_key, 0.0)) <= 0.0:
@@ -207,20 +215,46 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 			push_error("Duplicate enemy ID: %s" % enemy_id)
 			return false
 		var health: Dictionary = enemy.get("health", {})
+		var defense: Dictionary = enemy.get("defense", {})
 		var movement: Dictionary = enemy.get("movement", {})
 		var attack: Dictionary = enemy.get("attack", {})
+		var presentation: Dictionary = enemy.get("presentation", {})
+		var spawn: Dictionary = enemy.get("spawn", {})
 		var rewards: Dictionary = enemy.get("rewards", {})
 		if float(health.get("max", 0.0)) <= 0.0:
 			push_error("Enemy health must be positive: %s" % enemy_id)
+			return false
+		if float(defense.get("armor", -1.0)) < 0.0 or float(defense.get("magic_resistance", -1.0)) < 0.0:
+			push_error("Enemy defense values must be non-negative: %s" % enemy_id)
 			return false
 		for movement_key in ["speed", "collision_radius", "aggro_range"]:
 			if float(movement.get(movement_key, 0.0)) <= 0.0:
 				push_error("Enemy movement value must be positive: %s.%s" % [enemy_id, movement_key])
 				return false
-		for attack_key in ["damage", "range", "cooldown"]:
+		for attack_key in ["damage", "range", "attacks_per_second"]:
 			if float(attack.get(attack_key, 0.0)) <= 0.0:
 				push_error("Enemy attack value must be positive: %s.%s" % [enemy_id, attack_key])
 				return false
+		var attack_style := str(attack.get("attack_style", ""))
+		var damage_type := str(attack.get("damage_type", ""))
+		if attack_style not in ["melee", "ranged"] or damage_type not in ["physical", "magic"]:
+			push_error("Enemy attack classification is invalid: %s" % enemy_id)
+			return false
+		if attack_style == "melee" and float(attack.get("range", 0.0)) > 120.0:
+			push_error("Melee enemy range is too long: %s" % enemy_id)
+			return false
+		if attack_style == "ranged" and float(attack.get("range", 0.0)) < 250.0:
+			push_error("Ranged enemy range is too short: %s" % enemy_id)
+			return false
+		if str(enemy.get("combat_role", "")).is_empty():
+			push_error("Enemy combat role is missing: %s" % enemy_id)
+			return false
+		if str(presentation.get("visual_kind", "")) not in ["raider", "brute", "archer", "hexer"]:
+			push_error("Enemy visual kind is invalid: %s" % enemy_id)
+			return false
+		if float(spawn.get("weight", 0.0)) <= 0.0:
+			push_error("Enemy spawn weight must be positive: %s" % enemy_id)
+			return false
 		if int(rewards.get("run_gold", 0)) <= 0:
 			push_error("Enemy run Gold reward must be positive: %s" % enemy_id)
 			return false

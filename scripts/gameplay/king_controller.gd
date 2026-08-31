@@ -12,6 +12,7 @@ signal defeated(context: Dictionary)
 @onready var collision_shape: CollisionShape2D = %CollisionShape
 @onready var follow_camera: Camera2D = %FollowCamera
 @onready var health: HealthComponent = %Health
+@onready var defense: DefenseComponent = %Defense
 @onready var auto_attack: KingAutoAttackController = %AutoAttack
 
 var king_id: StringName = &"tran_hung_dao"
@@ -65,6 +66,9 @@ func configure(config: Dictionary) -> void:
 	var health_value: Variant = config.get("health", {})
 	if health_value is Dictionary:
 		health.configure(float(health_value.get("max", health.max_health)))
+	var defense_value: Variant = config.get("defense", {})
+	if defense_value is Dictionary:
+		defense.configure(defense_value)
 	var attack_value: Variant = config.get("attack", {})
 	if attack_value is Dictionary:
 		auto_attack.configure(attack_value, weapon_archetype)

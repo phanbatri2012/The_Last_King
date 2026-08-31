@@ -1,5 +1,7 @@
 # Phase 2 acceptance criteria — Infinite map and combat
 
+This document records the completed Phase 2 baseline. The active population and single-archetype criteria were superseded by the bounded endless multi-archetype system in `phase-3.md`.
+
 Phase 2 is complete when:
 
 1. the King can travel continuously in every direction without a gameplay boundary;

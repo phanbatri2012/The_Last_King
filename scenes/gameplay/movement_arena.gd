@@ -6,13 +6,8 @@ const KING_SPAWN := Vector2.ZERO
 const SNAPSHOT_INTERVAL_SEC := 0.15
 const EFFECTIVE_CAMERA_LIMIT := 2147480000
 const DEFEATED_ENEMY_CLEANUP_SEC := 0.7
-const TRAINING_GOBLIN_OFFSETS := [
-	Vector2(430.0, -140.0),
-	Vector2(610.0, 190.0),
-	Vector2(-510.0, 230.0),
-	Vector2(-650.0, -260.0),
-	Vector2(120.0, 560.0),
-]
+const DENSITY_REBALANCE_INTERVAL_SEC := 1.0
+const MAX_ENEMY_DISTANCE_FROM_KING := 1700.0
 
 @onready var backdrop: MovementArenaBackdrop = %Backdrop
 @onready var enemy_spawn_director: EnemySpawnDirector = %EnemySpawnDirector
@@ -38,12 +33,12 @@ const TRAINING_GOBLIN_OFFSETS := [
 @onready var defeat_back_button: Button = %DefeatBackButton
 
 var _king_config: Dictionary = {}
-var _goblin_config: Dictionary = {}
+var _enemy_configs: Dictionary = {}
 var _training_enemies: Dictionary = {}
 var _gold_pickups: Dictionary = {}
-var _goblin_run_gold_reward := 1
 var _next_pickup_serial := 1
 var _snapshot_accumulator := 0.0
+var _density_rebalance_accumulator := 0.0
 var _skip_exit_snapshot := false
 
 
@@ -55,9 +50,7 @@ func _ready() -> void:
 		GameSessionService.start_session(&"tran_hung_dao", &"dai_viet", int(Time.get_ticks_usec() & 0x7fffffff))
 
 	_king_config = ContentDatabase.get_king(&"tran_hung_dao")
-	_goblin_config = ContentDatabase.get_enemy(&"goblin")
-	var reward_data: Dictionary = _goblin_config.get("rewards", {})
-	_goblin_run_gold_reward = maxi(int(reward_data.get("run_gold", 1)), 1)
+	_load_enemy_configs()
 	king.configure(_king_config)
 	king.clear_movement_bounds()
 	king.global_position = GameSessionService.get_king_position(KING_SPAWN)
@@ -84,7 +77,11 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if king.is_combat_alive():
 		GameSessionService.advance(delta)
-		enemy_spawn_director.ensure_population(_living_enemy_count())
+		enemy_spawn_director.ensure_population(_living_enemy_count(), _get_elapsed_time())
+		_density_rebalance_accumulator += delta
+		if _density_rebalance_accumulator >= DENSITY_REBALANCE_INTERVAL_SEC:
+			_density_rebalance_accumulator = 0.0
+			_recycle_distant_enemies()
 	_snapshot_accumulator += delta
 	if _snapshot_accumulator < SNAPSHOT_INTERVAL_SEC:
 		return
@@ -115,13 +112,26 @@ func _configure_infinite_world() -> void:
 	backdrop.queue_redraw()
 
 
+func _load_enemy_configs() -> void:
+	_enemy_configs.clear()
+	var spawn_roster: Array[Dictionary] = []
+	for enemy_id in ContentDatabase.get_enemy_ids():
+		var enemy_config := ContentDatabase.get_enemy(StringName(enemy_id))
+		if enemy_config.is_empty():
+			continue
+		_enemy_configs[enemy_id] = enemy_config
+		var spawn_data: Dictionary = enemy_config.get("spawn", {})
+		spawn_roster.append({"enemy_id": enemy_id, "weight": float(spawn_data.get("weight", 1.0))})
+	enemy_spawn_director.set_spawn_roster(spawn_roster)
+
+
 func _restore_or_create_training_encounter() -> void:
 	var state := GameSessionService.get_enemy_combat_state()
 	var spawn_runtime_state: Dictionary = state.get("spawn_runtime_state", {})
 	enemy_spawn_director.configure(GameSessionService.active_session.seed, king, spawn_runtime_state)
 	_next_pickup_serial = maxi(int(state.get("next_pickup_serial", 1)), 1)
 	var encounter_id := str(state.get("encounter_id", ""))
-	if encounter_id in ["phase2_combat_drill", "phase2_endless_combat"]:
+	if encounter_id in ["phase2_combat_drill", "phase2_endless_combat", "phase3_endless_goblins"]:
 		var living_value: Variant = state.get("living_enemies", [])
 		if living_value is Array:
 			for snapshot_value in living_value:
@@ -132,16 +142,10 @@ func _restore_or_create_training_encounter() -> void:
 			for pickup_snapshot in pickup_value:
 				if pickup_snapshot is Dictionary:
 					_restore_gold_pickup(pickup_snapshot)
-		enemy_spawn_director.ensure_population(_living_enemy_count())
+		enemy_spawn_director.ensure_population(_living_enemy_count(), _get_elapsed_time())
 		return
 
-	for index in TRAINING_GOBLIN_OFFSETS.size():
-		_create_goblin(
-			"training_goblin_%d" % (index + 1),
-			king.global_position + TRAINING_GOBLIN_OFFSETS[index],
-			-1.0
-		)
-	enemy_spawn_director.ensure_population(_living_enemy_count())
+	enemy_spawn_director.ensure_population(0, _get_elapsed_time(), true)
 
 
 func _restore_goblin(snapshot: Dictionary) -> void:
@@ -153,7 +157,14 @@ func _restore_goblin(snapshot: Dictionary) -> void:
 		float(position_data.get("x", king.global_position.x)),
 		float(position_data.get("y", king.global_position.y))
 	)
-	_create_goblin(instance_key, restored_position, float(snapshot.get("health", -1.0)))
+	var enemy_id := StringName(str(snapshot.get("enemy_id", "goblin")))
+	_create_goblin(
+		instance_key,
+		enemy_id,
+		restored_position,
+		float(snapshot.get("health", -1.0)),
+		bool(snapshot.get("engaged", false))
+	)
 
 
 func _restore_gold_pickup(snapshot: Dictionary) -> void:
@@ -168,16 +179,27 @@ func _restore_gold_pickup(snapshot: Dictionary) -> void:
 	_create_gold_pickup(pickup_id, restored_position, int(snapshot.get("amount", 1)))
 
 
-func _create_goblin(instance_key: String, world_position: Vector2, restored_health: float) -> void:
+func _create_goblin(
+	instance_key: String,
+	enemy_id: StringName,
+	world_position: Vector2,
+	restored_health: float,
+	restored_engaged: bool = false
+) -> void:
 	if _training_enemies.has(instance_key) and is_instance_valid(_training_enemies[instance_key]):
 		return
 	var goblin := GOBLIN_SCENE.instantiate() as GoblinController
 	if goblin == null:
 		push_error("Goblin scene could not be instantiated.")
 		return
+	var enemy_config: Dictionary = _enemy_configs.get(str(enemy_id), _enemy_configs.get("goblin", {}))
+	if enemy_config.is_empty():
+		push_error("Enemy config could not be resolved: %s" % enemy_id)
+		goblin.queue_free()
+		return
 	goblin.global_position = world_position
 	add_child(goblin)
-	goblin.configure(_goblin_config, instance_key, restored_health)
+	goblin.configure(enemy_config, instance_key, restored_health, restored_engaged)
 	goblin.set_target(king)
 	goblin.defeated.connect(_on_enemy_defeated)
 	_training_enemies[instance_key] = goblin
@@ -221,12 +243,30 @@ func _store_combat_state() -> void:
 
 
 func _living_enemy_count() -> int:
-	var count := 0
-	for enemy_value in _training_enemies.values():
-		var enemy := enemy_value as GoblinController
-		if is_instance_valid(enemy) and enemy.is_combat_alive():
-			count += 1
-	return count
+	return _training_enemies.size()
+
+
+func _get_elapsed_time() -> float:
+	return GameSessionService.active_session.elapsed_time if GameSessionService.active_session != null else 0.0
+
+
+func _recycle_distant_enemies() -> void:
+	var maximum_distance_squared := MAX_ENEMY_DISTANCE_FROM_KING * MAX_ENEMY_DISTANCE_FROM_KING
+	var recycled_any := false
+	for instance_key in _training_enemies.keys():
+		var enemy := _training_enemies[instance_key] as GoblinController
+		if not is_instance_valid(enemy):
+			_training_enemies.erase(instance_key)
+			continue
+		if king.global_position.distance_squared_to(enemy.global_position) <= maximum_distance_squared:
+			continue
+		_training_enemies.erase(instance_key)
+		enemy.retire_without_reward()
+		enemy.queue_free()
+		enemy_spawn_director.schedule_replacement(0.35)
+		recycled_any = true
+	if recycled_any:
+		_store_combat_state()
 
 
 func _refresh_static_text() -> void:
@@ -249,9 +289,7 @@ func _refresh_live_text() -> void:
 		"phase2.position",
 		{"x": roundi(king.global_position.x), "y": roundi(king.global_position.y)}
 	)
-	var elapsed_time := 0.0
-	if GameSessionService.active_session != null:
-		elapsed_time = GameSessionService.active_session.elapsed_time
+	var elapsed_time := _get_elapsed_time()
 	time_label.text = LocalizationService.translate_key(
 		"phase2.session_time",
 		{"time": snappedf(elapsed_time, 0.1)}
@@ -262,7 +300,10 @@ func _refresh_live_text() -> void:
 	)
 	king_health_bar.value = king.health.get_ratio() * 100.0
 	var living_count := _living_enemy_count()
-	enemy_count_label.text = LocalizationService.translate_key("phase2.enemy_count", {"count": living_count})
+	enemy_count_label.text = LocalizationService.translate_key(
+		"phase2.enemy_count",
+		{"count": living_count, "target": enemy_spawn_director.get_target_population(elapsed_time)}
+	)
 	run_gold_label.text = LocalizationService.translate_key(
 		"phase2.run_gold",
 		{"amount": RewardGrantService.get_run_gold()}
@@ -288,15 +329,17 @@ func _on_enemy_defeated(enemy: GoblinController, _context: Dictionary) -> void:
 	_training_enemies.erase(enemy.instance_id)
 	var pickup_id := "run_gold_%08d" % _next_pickup_serial
 	_next_pickup_serial += 1
-	_create_gold_pickup(pickup_id, defeated_position, _goblin_run_gold_reward)
+	var enemy_config: Dictionary = _enemy_configs.get(str(enemy.enemy_id), {})
+	var reward_data: Dictionary = enemy_config.get("rewards", {})
+	_create_gold_pickup(pickup_id, defeated_position, maxi(int(reward_data.get("run_gold", 1)), 1))
 	enemy_spawn_director.schedule_replacement()
 	get_tree().create_timer(DEFEATED_ENEMY_CLEANUP_SEC).timeout.connect(enemy.queue_free)
 	_store_combat_state()
 	_refresh_live_text()
 
 
-func _on_spawn_requested(instance_key: String, world_position: Vector2) -> void:
-	_create_goblin(instance_key, world_position, -1.0)
+func _on_spawn_requested(instance_key: String, enemy_id: StringName, world_position: Vector2) -> void:
+	_create_goblin(instance_key, enemy_id, world_position, -1.0)
 	_store_combat_state()
 	_refresh_live_text()
 

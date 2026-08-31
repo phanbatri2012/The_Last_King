@@ -1,27 +1,82 @@
 {
-  "schema_version": 1,
-  "content_version": "phase2.1",
+  "schema_version": 2,
+  "content_version": "phase3.0",
   "enemies": [
     {
       "id": "goblin",
       "name_key": "enemy.goblin.name",
-      "status": "mvp",
-      "health": {
-        "max": 90.0
-      },
-      "movement": {
-        "speed": 115.0,
-        "collision_radius": 24.0,
-        "aggro_range": 900.0
-      },
+      "status": "active",
+      "combat_role": "melee_physical",
+      "health": {"max": 90.0},
+      "defense": {"armor": 4.0, "magic_resistance": 1.0},
+      "movement": {"speed": 115.0, "collision_radius": 24.0, "aggro_range": 520.0},
       "attack": {
         "damage": 22.0,
+        "damage_type": "physical",
+        "attack_style": "melee",
         "range": 72.0,
-        "cooldown": 1.15
+        "attacks_per_second": 0.87
       },
-      "rewards": {
-        "run_gold": 3
-      }
+      "presentation": {"visual_kind": "raider", "body_color": "#4b922f", "accent_color": "#9d5a25"},
+      "spawn": {"weight": 42.0},
+      "rewards": {"run_gold": 3}
+    },
+    {
+      "id": "goblin_brute",
+      "name_key": "enemy.goblin_brute.name",
+      "status": "active",
+      "combat_role": "melee_physical_tank",
+      "health": {"max": 170.0},
+      "defense": {"armor": 12.0, "magic_resistance": 4.0},
+      "movement": {"speed": 76.0, "collision_radius": 29.0, "aggro_range": 430.0},
+      "attack": {
+        "damage": 34.0,
+        "damage_type": "physical",
+        "attack_style": "melee",
+        "range": 82.0,
+        "attacks_per_second": 0.56
+      },
+      "presentation": {"visual_kind": "brute", "body_color": "#47702d", "accent_color": "#b48132"},
+      "spawn": {"weight": 18.0},
+      "rewards": {"run_gold": 6}
+    },
+    {
+      "id": "goblin_archer",
+      "name_key": "enemy.goblin_archer.name",
+      "status": "active",
+      "combat_role": "ranged_physical",
+      "health": {"max": 70.0},
+      "defense": {"armor": 2.0, "magic_resistance": 2.0},
+      "movement": {"speed": 96.0, "collision_radius": 22.0, "aggro_range": 780.0},
+      "attack": {
+        "damage": 16.0,
+        "damage_type": "physical",
+        "attack_style": "ranged",
+        "range": 430.0,
+        "attacks_per_second": 0.72
+      },
+      "presentation": {"visual_kind": "archer", "body_color": "#6c9b37", "accent_color": "#d0a23c"},
+      "spawn": {"weight": 25.0},
+      "rewards": {"run_gold": 4}
+    },
+    {
+      "id": "goblin_hexer",
+      "name_key": "enemy.goblin_hexer.name",
+      "status": "active",
+      "combat_role": "ranged_magic",
+      "health": {"max": 78.0},
+      "defense": {"armor": 1.0, "magic_resistance": 10.0},
+      "movement": {"speed": 88.0, "collision_radius": 23.0, "aggro_range": 680.0},
+      "attack": {
+        "damage": 20.0,
+        "damage_type": "magic",
+        "attack_style": "ranged",
+        "range": 350.0,
+        "attacks_per_second": 0.62
+      },
+      "presentation": {"visual_kind": "hexer", "body_color": "#526c35", "accent_color": "#a65ce0"},
+      "spawn": {"weight": 15.0},
+      "rewards": {"run_gold": 5}
     }
   ]
 }

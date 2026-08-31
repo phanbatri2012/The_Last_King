@@ -4,7 +4,7 @@ Top-down historical-fantasy survivor with army building, roguelite runs, and per
 
 Rise as a legendary ruler, survive enemy hordes, command ancient armies, collect gold, unlock skills, summon iconic warriors, and defeat colossal bosses.
 
-## Phase 2 status
+## Phase 3 combat population status
 
 This repository contains the technical foundation and the first playable combat slice:
 
@@ -18,7 +18,11 @@ This repository contains the technical foundation and the first playable combat 
 - data-driven sword/blade versus bow/crossbow balance bands with King-specific attack ranges;
 - procedurally tiled infinite battlefield with a smooth unbounded camera;
 - normalized WASD/Arrow Keys and analog pointer/touch joystick movement;
-- data-driven Goblins with pursuit, melee attacks, health, death, and continuous replacements;
+- four data-driven Goblin archetypes: Raider, Brute, Archer, and Hexer;
+- per-archetype health, armor, magic resistance, movement speed, hatred range, attack range, damage, and attack speed;
+- melee/ranged and physical/magic enemy combat through the shared damage resolver;
+- idle-until-alerted Goblins that engage only inside their hatred range or after the King attacks them;
+- unlimited lifetime spawning with a moderate active density that grows gradually from 9 to a hard cap of 15;
 - nearest-target selection and automatic King attacks;
 - one shared damage resolver for King and enemy damage;
 - bright run Gold drops, collection through one reward service, and a yellow HUD counter;
@@ -26,7 +30,7 @@ This repository contains the technical foundation and the first playable combat 
 - desktop and web export presets;
 - headless smoke tests.
 
-Escalating waves, XP, Run Level, and level-up cards intentionally begin in Phase 3.
+XP, Run Level, level-up cards, and summoning remain later Phase 3 slices.
 
 ## Toolchain
 

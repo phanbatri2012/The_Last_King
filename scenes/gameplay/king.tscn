@@ -1,10 +1,11 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/gameplay/king_controller.gd" id="1_controller"]
 [ext_resource type="Script" path="res://scripts/gameplay/king_placeholder_visual.gd" id="2_visual"]
 [ext_resource type="Script" path="res://scripts/combat/health_component.gd" id="3_health"]
 [ext_resource type="Script" path="res://scripts/combat/king_auto_attack_controller.gd" id="4_attack"]
 [ext_resource type="Script" path="res://scripts/combat/king_attack_visual.gd" id="5_strike"]
+[ext_resource type="Script" path="res://scripts/combat/defense_component.gd" id="6_defense"]
 
 [sub_resource type="CircleShape2D" id="CircleKing"]
 radius = 30.0
@@ -29,6 +30,10 @@ shape = SubResource("CircleKing")
 unique_name_in_owner = true
 script = ExtResource("3_health")
 max_health = 260.0
+
+[node name="Defense" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("6_defense")
 
 [node name="AutoAttack" type="Node2D" parent="."]
 unique_name_in_owner = true

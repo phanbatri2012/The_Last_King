@@ -9,7 +9,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	print("[TEST] The Last King Phase 2")
+	print("[TEST] The Last King Phase 3 combat population")
 	_test_project_configuration()
 	_test_scenes_load()
 	_test_faction_roster()
@@ -29,6 +29,7 @@ func _run() -> void:
 	await _test_king_scene_movement()
 	await _test_auto_attack_combat()
 	await _test_goblin_attack_combat()
+	await _test_goblin_ranged_magic_combat()
 	await _test_endless_respawn_and_gold_pickup()
 	await _test_desktop_menu_exit_runtime()
 	_test_pause_manager()
@@ -47,7 +48,7 @@ func _run() -> void:
 
 func _test_project_configuration() -> void:
 	_expect(ProjectSettings.get_setting("application/config/name") == "The Last King", "Project name is canonical.")
-	_expect(ProjectSettings.get_setting("application/config/version") == "0.2.2", "Game version is independent and explicit.")
+	_expect(ProjectSettings.get_setting("application/config/version") == "0.3.0", "Game version is independent and explicit.")
 	var project_file := _read_text("res://project.godot")
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
@@ -137,8 +138,11 @@ func _test_king_catalog() -> void:
 	_expect(float(movement.get("speed", 0.0)) > 0.0, "King movement speed is positive.")
 	_expect(float(movement.get("collision_radius", 0.0)) > 0.0, "King collision radius is positive.")
 	var health: Dictionary = king.get("health", {})
+	var defense: Dictionary = king.get("defense", {})
 	var attack: Dictionary = king.get("attack", {})
 	_expect(float(health.get("max", 0.0)) > 0.0, "King maximum health is positive.")
+	_expect(float(defense.get("armor", -1.0)) >= 0.0, "King armor is non-negative.")
+	_expect(float(defense.get("magic_resistance", -1.0)) >= 0.0, "King magic resistance is non-negative.")
 	for combat_key in ["damage", "range", "cooldown", "target_refresh"]:
 		_expect(float(attack.get(combat_key, 0.0)) > 0.0, "King attack value is positive: %s" % combat_key)
 	if weapon_archetypes.has(weapon_archetype_id):
@@ -176,11 +180,13 @@ func _test_weapon_archetypes() -> void:
 		var archetype: Dictionary = archetype_value
 		var archetype_id := str(archetype.get("id", ""))
 		var attack_style := str(archetype.get("attack_style", ""))
+		var damage_type := str(archetype.get("damage_type", ""))
 		var name_key := str(archetype.get("name_key", ""))
 		var damage_bounds: Dictionary = archetype.get("damage_bounds", {})
 		var range_bounds: Dictionary = archetype.get("range_bounds", {})
 		_expect(not seen_ids.has(archetype_id), "Weapon archetype ID is unique: %s" % archetype_id)
 		_expect(english.has(name_key) and vietnamese.has(name_key), "Weapon archetype is localized: %s" % archetype_id)
+		_expect(damage_type in ["physical", "magic"], "Weapon damage type is supported: %s" % archetype_id)
 		_expect(float(damage_bounds.get("min", 0.0)) <= float(damage_bounds.get("max", -1.0)), "Weapon damage bounds are ordered: %s" % archetype_id)
 		_expect(float(range_bounds.get("min", 0.0)) <= float(range_bounds.get("max", -1.0)), "Weapon range bounds are ordered: %s" % archetype_id)
 		if attack_style == "melee":
@@ -202,26 +208,57 @@ func _test_enemy_catalog() -> void:
 	var catalog := _load_json("res://data/enemies/enemies.json")
 	var english := _load_json("res://localization/en-US/common.json")
 	var vietnamese := _load_json("res://localization/vi-VN/common.json")
-	_expect(int(catalog.get("schema_version", 0)) == 1, "Enemy catalog schema is versioned.")
-	_expect(str(catalog.get("content_version", "")).begins_with("phase2"), "Enemy catalog identifies Phase 2 content.")
+	_expect(int(catalog.get("schema_version", 0)) == 2, "Enemy catalog schema is versioned for multi-archetype combat.")
+	_expect(str(catalog.get("content_version", "")).begins_with("phase3"), "Enemy catalog identifies Phase 3 content.")
 	var enemies: Array = catalog.get("enemies", [])
-	_expect(enemies.size() == 1, "Phase 2 implements one MVP enemy type.")
-	if enemies.is_empty() or not enemies[0] is Dictionary:
-		return
-	var goblin: Dictionary = enemies[0]
-	_expect(goblin.get("id") == "goblin", "Goblin uses a stable enemy ID.")
-	_expect(english.has(str(goblin.get("name_key", ""))), "Goblin name is localized in English.")
-	_expect(vietnamese.has(str(goblin.get("name_key", ""))), "Goblin name is localized in Vietnamese.")
-	var health: Dictionary = goblin.get("health", {})
-	var movement: Dictionary = goblin.get("movement", {})
-	var attack: Dictionary = goblin.get("attack", {})
-	_expect(float(health.get("max", 0.0)) > 0.0, "Goblin maximum health is positive.")
-	for movement_key in ["speed", "collision_radius", "aggro_range"]:
-		_expect(float(movement.get(movement_key, 0.0)) > 0.0, "Goblin movement value is positive: %s" % movement_key)
-	for attack_key in ["damage", "range", "cooldown"]:
-		_expect(float(attack.get(attack_key, 0.0)) > 0.0, "Goblin attack value is positive: %s" % attack_key)
-	var rewards: Dictionary = goblin.get("rewards", {})
-	_expect(int(rewards.get("run_gold", 0)) > 0, "Goblin grants a positive data-driven run Gold reward.")
+	_expect(enemies.size() >= 4, "At least four Goblin combat archetypes are available.")
+	var seen_ids: Dictionary = {}
+	var seen_roles: Dictionary = {}
+	var seen_aggro_ranges: Dictionary = {}
+	var seen_attack_styles: Dictionary = {}
+	var seen_damage_types: Dictionary = {}
+	for enemy_value in enemies:
+		_expect(enemy_value is Dictionary, "Each enemy entry is an object.")
+		if not enemy_value is Dictionary:
+			continue
+		var enemy: Dictionary = enemy_value
+		var enemy_id := str(enemy.get("id", ""))
+		var combat_role := str(enemy.get("combat_role", ""))
+		var health: Dictionary = enemy.get("health", {})
+		var defense: Dictionary = enemy.get("defense", {})
+		var movement: Dictionary = enemy.get("movement", {})
+		var attack: Dictionary = enemy.get("attack", {})
+		var spawn: Dictionary = enemy.get("spawn", {})
+		var rewards: Dictionary = enemy.get("rewards", {})
+		_expect(not enemy_id.is_empty() and not seen_ids.has(enemy_id), "Enemy ID is stable and unique: %s" % enemy_id)
+		_expect(not combat_role.is_empty(), "Goblin has a data-driven combat role: %s" % enemy_id)
+		_expect(english.has(str(enemy.get("name_key", ""))), "Enemy name is localized in English: %s" % enemy_id)
+		_expect(vietnamese.has(str(enemy.get("name_key", ""))), "Enemy name is localized in Vietnamese: %s" % enemy_id)
+		_expect(float(health.get("max", 0.0)) > 0.0, "Enemy maximum health is positive: %s" % enemy_id)
+		_expect(float(defense.get("armor", -1.0)) >= 0.0, "Enemy armor is non-negative: %s" % enemy_id)
+		_expect(float(defense.get("magic_resistance", -1.0)) >= 0.0, "Enemy magic resistance is non-negative: %s" % enemy_id)
+		for movement_key in ["speed", "collision_radius", "aggro_range"]:
+			_expect(float(movement.get(movement_key, 0.0)) > 0.0, "Enemy movement value is positive: %s/%s" % [enemy_id, movement_key])
+		for attack_key in ["damage", "range", "attacks_per_second"]:
+			_expect(float(attack.get(attack_key, 0.0)) > 0.0, "Enemy attack value is positive: %s/%s" % [enemy_id, attack_key])
+		var attack_style := str(attack.get("attack_style", ""))
+		var damage_type := str(attack.get("damage_type", ""))
+		_expect(attack_style in ["melee", "ranged"], "Enemy attack style is supported: %s" % enemy_id)
+		_expect(damage_type in ["physical", "magic"], "Enemy damage type is supported: %s" % enemy_id)
+		_expect(float(spawn.get("weight", 0.0)) > 0.0, "Enemy has a positive seeded spawn weight: %s" % enemy_id)
+		_expect(int(rewards.get("run_gold", 0)) > 0, "Enemy grants a positive run Gold reward: %s" % enemy_id)
+		seen_ids[enemy_id] = true
+		seen_roles[combat_role] = true
+		seen_aggro_ranges[float(movement.get("aggro_range", 0.0))] = true
+		seen_attack_styles[attack_style] = true
+		seen_damage_types[damage_type] = true
+	_expect(seen_ids.has("goblin"), "The original Goblin stable ID is retained.")
+	for expected_id in ["goblin_brute", "goblin_archer", "goblin_hexer"]:
+		_expect(seen_ids.has(expected_id), "Required Goblin archetype exists: %s" % expected_id)
+	_expect(seen_roles.size() >= 4, "Goblin archetypes expose distinct combat roles.")
+	_expect(seen_aggro_ranges.size() >= 4, "Each Goblin archetype has a distinct hatred range.")
+	_expect(seen_attack_styles.has("melee") and seen_attack_styles.has("ranged"), "Goblin roster includes melee and ranged attackers.")
+	_expect(seen_damage_types.has("physical") and seen_damage_types.has("magic"), "Goblin roster includes physical and magic damage.")
 
 
 func _test_localization_catalogs() -> void:
@@ -278,15 +315,22 @@ func _test_battle_session_serialization() -> void:
 func _test_enemy_spawn_director_state() -> void:
 	var target := Node2D.new()
 	var director := EnemySpawnDirector.new()
+	director.set_spawn_roster([
+		{"enemy_id": "goblin", "weight": 3.0},
+		{"enemy_id": "goblin_hexer", "weight": 1.0},
+	])
 	director.configure(12345, target)
 	director.ensure_population(3)
-	_expect(director.get_pending_count() == 2, "Spawn director schedules enough Goblins to restore target population.")
+	_expect(director.get_pending_count() == 6, "Spawn director schedules enough Goblins to restore the bounded population.")
+	_expect(director.get_target_population(0.0) == 9, "Endless encounter starts at a moderate nine-Goblin density.")
+	_expect(director.get_target_population(45.0) == 10, "Active Goblin density grows gradually over survival time.")
+	_expect(director.get_target_population(99999.0) == 15, "Simultaneous Goblins remain capped for Web and mobile performance.")
 	var snapshot := director.get_runtime_snapshot()
 	_expect(int(snapshot.get("next_spawn_serial", 0)) == 1, "Spawn director snapshots its next stable instance serial.")
 	_expect(snapshot.get("pending_spawn_delays", []) is Array, "Spawn director snapshots pending replacements.")
 	var restored := EnemySpawnDirector.new()
 	restored.configure(99999, target, snapshot)
-	_expect(restored.get_pending_count() == 2, "Spawn director restores pending replacements for Continue.")
+	_expect(restored.get_pending_count() == 6, "Spawn director restores pending replacements for Continue.")
 	director.free()
 	restored.free()
 	target.free()
@@ -354,7 +398,8 @@ func _test_movement_arena_layout() -> void:
 	if run_gold_label != null:
 		_expect(run_gold_label.get_theme_color("font_color").r > 0.9, "Run Gold counter uses a bright Gold color.")
 	var spawn_director := arena.get_node("EnemySpawnDirector") as EnemySpawnDirector
-	_expect(spawn_director != null and spawn_director.target_population == 5, "Combat arena maintains a five-Goblin population.")
+	_expect(spawn_director != null and spawn_director.base_population == 9, "Combat arena starts with a moderate nine-Goblin population.")
+	_expect(spawn_director != null and spawn_director.maximum_population == 15, "Combat arena caps simultaneous Goblins at fifteen.")
 	var death_overlay := arena.get_node("HudLayer/DeathOverlay") as Control
 	_expect(death_overlay != null, "Combat HUD contains the defeat overlay.")
 	var retry_button := arena.get_node("HudLayer/DeathOverlay/Center/Panel/Content/RetryButton") as Button
@@ -401,6 +446,28 @@ func _test_health_and_damage() -> void:
 	_expect(is_zero_approx(health.current_health), "Lethal damage clamps health to zero.")
 	_expect(not health.is_alive(), "Health component exposes its death state.")
 	health.free()
+
+	var defense := DefenseComponent.new()
+	defense.configure({"armor": 10.0, "magic_resistance": 4.0})
+	var defended_health := HealthComponent.new()
+	defended_health.configure(100.0)
+	var physical_hit := DamageResolver.apply_damage(
+		defended_health,
+		30.0,
+		{"damage_type": "physical"},
+		defense
+	)
+	_expect(is_equal_approx(float(physical_hit.get("applied", 0.0)), 20.0), "Armor mitigates physical damage through the shared resolver.")
+	_expect(is_equal_approx(float(physical_hit.get("mitigated", 0.0)), 10.0), "Damage result reports physical mitigation.")
+	var magic_hit := DamageResolver.apply_damage(
+		defended_health,
+		30.0,
+		{"damage_type": "magic"},
+		defense
+	)
+	_expect(is_equal_approx(float(magic_hit.get("applied", 0.0)), 26.0), "Magic resistance mitigates magic damage independently from armor.")
+	defense.free()
+	defended_health.free()
 
 
 func _test_target_selection() -> void:
@@ -562,7 +629,7 @@ func _test_goblin_attack_combat() -> void:
 	var king := packed_king.instantiate() as KingController
 	var goblin := packed_goblin.instantiate() as GoblinController
 	king.global_position = Vector2.ZERO
-	goblin.global_position = Vector2(65.0, 0.0)
+	goblin.global_position = Vector2(600.0, 0.0)
 	root.add_child(king)
 	root.add_child(goblin)
 	await process_frame
@@ -583,7 +650,7 @@ func _test_goblin_attack_combat() -> void:
 	var king_data: Dictionary = king_records[0]
 	var enemy_data: Dictionary = enemy_records[0].duplicate(true)
 	var rapid_attack: Dictionary = enemy_data.get("attack", {}).duplicate(true)
-	rapid_attack["cooldown"] = 0.02
+	rapid_attack["attacks_per_second"] = 50.0
 	enemy_data["attack"] = rapid_attack
 	king.configure(king_data)
 	king.auto_attack.set_combat_enabled(false)
@@ -592,11 +659,75 @@ func _test_goblin_attack_combat() -> void:
 	var starting_health := king.health.current_health
 	for _frame in 5:
 		await physics_frame
+	_expect(not goblin.is_engaged(), "Goblin remains idle while the King is outside its hatred range.")
+	_expect(is_equal_approx(king.health.current_health, starting_health), "Idle Goblin does not damage a distant King.")
+	var idle_position := goblin.global_position
+	DamageResolver.apply_damage(
+		goblin.health,
+		5.0,
+		{"source_kind": "king", "source_id": "integration_king", "damage_type": "physical"},
+		goblin.defense
+	)
+	await physics_frame
+	_expect(goblin.is_engaged(), "A Goblin immediately retaliates after the King attacks it outside hatred range.")
+	_expect(goblin.global_position.distance_to(king.global_position) < idle_position.distance_to(king.global_position), "An alerted Goblin starts pursuing the King.")
+	goblin.global_position = Vector2(65.0, 0.0)
+	for _frame in 5:
+		await physics_frame
 	_expect(king.health.current_health < starting_health, "Goblin melee attacks damage the King through the shared resolver.")
 	_expect(king.visual.get_health_ratio() < 1.0, "King overhead health bar reacts to received damage.")
 	_expect(is_equal_approx(king.visual.get_health_ratio(), king.health.get_ratio()), "King overhead health ratio matches the health component.")
 	king.queue_free()
 	goblin.queue_free()
+	await process_frame
+
+
+func _test_goblin_ranged_magic_combat() -> void:
+	var packed_king := load("res://scenes/gameplay/king.tscn") as PackedScene
+	var packed_goblin := load("res://scenes/gameplay/goblin.tscn") as PackedScene
+	if packed_king == null or packed_goblin == null:
+		_expect(false, "Ranged magic combat fixtures load.")
+		return
+	var king := packed_king.instantiate() as KingController
+	var hexer := packed_goblin.instantiate() as GoblinController
+	king.global_position = Vector2.ZERO
+	hexer.global_position = Vector2(300.0, 0.0)
+	root.add_child(king)
+	root.add_child(hexer)
+	await process_frame
+	king.follow_camera.enabled = false
+	king.set_keyboard_enabled(false)
+	king.set_movement_enabled(false)
+	var king_records: Array = _load_json("res://data/kings/kings.json").get("kings", [])
+	var enemy_records: Array = _load_json("res://data/enemies/enemies.json").get("enemies", [])
+	var hexer_data: Dictionary = {}
+	for enemy_value in enemy_records:
+		if enemy_value is Dictionary and enemy_value.get("id") == "goblin_hexer":
+			hexer_data = enemy_value.duplicate(true)
+			break
+	if king_records.is_empty() or hexer_data.is_empty():
+		_expect(false, "Ranged magic combat data fixtures contain a Goblin Hexer.")
+		king.queue_free()
+		hexer.queue_free()
+		await process_frame
+		return
+	king.configure(king_records[0])
+	king.auto_attack.set_combat_enabled(false)
+	var rapid_attack: Dictionary = hexer_data.get("attack", {}).duplicate(true)
+	rapid_attack["attacks_per_second"] = 50.0
+	hexer_data["attack"] = rapid_attack
+	hexer.configure(hexer_data, "magic_integration_goblin")
+	hexer.set_target(king)
+	var starting_health := king.health.current_health
+	for _frame in 5:
+		await physics_frame
+	_expect(hexer.is_engaged(), "Goblin Hexer engages when the King enters its individual hatred range.")
+	_expect(hexer.attack_style == "ranged", "Goblin Hexer uses a ranged attack style.")
+	_expect(hexer.damage_type == "magic", "Goblin Hexer deals magic damage.")
+	_expect(hexer.attack_visual.attack_style == "ranged" and hexer.attack_visual.damage_type == "magic", "Goblin Hexer uses the ranged magic attack visual.")
+	_expect(king.health.current_health < starting_health, "Ranged magic Goblin damages the King without entering melee range.")
+	king.queue_free()
+	hexer.queue_free()
 	await process_frame
 
 
@@ -612,19 +743,38 @@ func _test_endless_respawn_and_gold_pickup() -> void:
 	arena_king.follow_camera.enabled = false
 	arena_king.set_keyboard_enabled(false)
 	arena_king.auto_attack.set_combat_enabled(false)
+	for _frame in 90:
+		await physics_frame
+		for child in arena.get_children():
+			if child is GoblinController:
+				(child as GoblinController).set_combat_enabled(false)
 	var initial_goblins: Array[GoblinController] = []
+	var initial_archetypes: Dictionary = {}
 	for child in arena.get_children():
 		if child is GoblinController:
 			var goblin := child as GoblinController
 			goblin.set_combat_enabled(false)
 			initial_goblins.append(goblin)
-	_expect(initial_goblins.size() == 5, "Endless encounter starts with five Goblins.")
+			initial_archetypes[str(goblin.enemy_id)] = true
+	_expect(initial_goblins.size() == 9, "Endless encounter starts with nine simultaneously active Goblins.")
+	_expect(initial_archetypes.size() >= 2, "Seeded endless spawning mixes multiple Goblin archetypes.")
 	if initial_goblins.is_empty():
 		arena.queue_free()
 		await process_frame
 		game_session_service.end_session({"reason": "test_failed"})
 		return
-	DamageResolver.apply_damage(initial_goblins[0].health, 999.0, {"source_id": "integration_test"})
+	var defeated_enemy_id := str(initial_goblins[0].enemy_id)
+	var expected_gold := 0
+	for enemy_value in _load_json("res://data/enemies/enemies.json").get("enemies", []):
+		if enemy_value is Dictionary and enemy_value.get("id") == defeated_enemy_id:
+			expected_gold = int(enemy_value.get("rewards", {}).get("run_gold", 0))
+			break
+	DamageResolver.apply_damage(
+		initial_goblins[0].health,
+		999.0,
+		{"source_kind": "king", "source_id": "integration_test", "damage_type": "physical"},
+		initial_goblins[0].defense
+	)
 	await process_frame
 	var dropped_gold: RunGoldPickup
 	for child in arena.get_children():
@@ -633,18 +783,21 @@ func _test_endless_respawn_and_gold_pickup() -> void:
 			break
 	_expect(dropped_gold != null, "Defeated Goblin drops a visible run Gold pickup node.")
 	if dropped_gold != null:
-		_expect(dropped_gold.amount == 3, "Gold pickup uses the Goblin's data-driven reward amount.")
+		_expect(dropped_gold.amount == expected_gold, "Gold pickup uses the defeated Goblin archetype's data-driven reward amount.")
 		dropped_gold.global_position = arena_king.global_position
 		for _frame in 3:
 			await physics_frame
-		_expect(reward_grant_service.get_run_gold() == 3, "King collects the dropped run Gold through Area2D overlap.")
+		_expect(reward_grant_service.get_run_gold() == expected_gold, "King collects the dropped run Gold through Area2D overlap.")
 	for _frame in 110:
 		await physics_frame
+		for child in arena.get_children():
+			if child is GoblinController:
+				(child as GoblinController).set_combat_enabled(false)
 	var living_goblins := 0
 	for child in arena.get_children():
 		if child is GoblinController and child.is_combat_alive():
 			living_goblins += 1
-	_expect(living_goblins == 5, "A replacement Goblin restores the endless encounter population.")
+	_expect(living_goblins == 9, "A replacement Goblin restores the bounded endless encounter population.")
 	arena.queue_free()
 	await process_frame
 	game_session_service.end_session({"reason": "test_complete"})

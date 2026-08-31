@@ -98,7 +98,7 @@ func set_enemy_combat_state(
 	if active_session == null:
 		return
 	active_session.enemy_wave_state = {
-		"encounter_id": "phase2_endless_combat",
+		"encounter_id": "phase3_endless_goblins",
 		"living_enemies": living_enemies.duplicate(true),
 		"spawn_runtime_state": spawn_runtime_state.duplicate(true),
 		"gold_pickups": gold_pickups.duplicate(true),

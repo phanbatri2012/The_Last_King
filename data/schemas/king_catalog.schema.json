@@ -11,7 +11,7 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "faction_id", "name_key", "title_key", "status", "weapon_archetype_id", "movement", "health", "attack"],
+        "required": ["id", "faction_id", "name_key", "title_key", "status", "weapon_archetype_id", "movement", "health", "defense", "attack"],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
           "faction_id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
@@ -33,6 +33,15 @@
             "required": ["max"],
             "properties": {
               "max": {"type": "number", "exclusiveMinimum": 0}
+            },
+            "additionalProperties": false
+          },
+          "defense": {
+            "type": "object",
+            "required": ["armor", "magic_resistance"],
+            "properties": {
+              "armor": {"type": "number", "minimum": 0},
+              "magic_resistance": {"type": "number", "minimum": 0}
             },
             "additionalProperties": false
           },

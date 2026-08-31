@@ -13,6 +13,7 @@ var attack_range := 225.0
 var attack_cooldown := 0.55
 var target_refresh_interval := 0.12
 var attack_style := "melee"
+var damage_type := "physical"
 var weapon_archetype_id: StringName = &"sword"
 
 var _host: KingController
@@ -46,6 +47,7 @@ func configure(config: Dictionary, weapon_archetype: Dictionary = {}) -> void:
 	target_refresh_interval = float(config.get("target_refresh", target_refresh_interval))
 	weapon_archetype_id = StringName(str(weapon_archetype.get("id", weapon_archetype_id)))
 	attack_style = str(weapon_archetype.get("attack_style", attack_style))
+	damage_type = str(weapon_archetype.get("damage_type", damage_type))
 	strike_visual.configure(attack_style)
 	_apply_attack_range()
 
@@ -91,8 +93,9 @@ func _attack_current_target() -> void:
 			"target_kind": "enemy",
 			"target_id": str(_current_target.enemy_id),
 			"target_instance_id": _current_target.instance_id,
-			"damage_type": "melee",
-		}
+			"damage_type": damage_type,
+		},
+		_current_target.defense
 	)
 	attack_performed.emit(_current_target, float(result.get("applied", 0.0)))
 	if bool(result.get("killed", false)):

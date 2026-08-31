@@ -11,11 +11,12 @@
       "minItems": 4,
       "items": {
         "type": "object",
-        "required": ["id", "name_key", "attack_style", "visual_kind", "damage_bounds", "range_bounds"],
+        "required": ["id", "name_key", "attack_style", "damage_type", "visual_kind", "damage_bounds", "range_bounds"],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
           "name_key": {"type": "string", "minLength": 1},
           "attack_style": {"enum": ["melee", "ranged"]},
+          "damage_type": {"enum": ["physical", "magic"]},
           "visual_kind": {"enum": ["sword", "blade", "bow", "crossbow"]},
           "damage_bounds": {"$ref": "#/$defs/positiveBounds"},
           "range_bounds": {"$ref": "#/$defs/positiveBounds"}

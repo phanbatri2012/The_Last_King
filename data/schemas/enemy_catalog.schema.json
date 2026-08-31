@@ -4,23 +4,31 @@
   "type": "object",
   "required": ["schema_version", "content_version", "enemies"],
   "properties": {
-    "schema_version": {"type": "integer", "minimum": 1},
+    "schema_version": {"type": "integer", "minimum": 2},
     "content_version": {"type": "string", "minLength": 1},
     "enemies": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 4,
       "items": {
         "type": "object",
-        "required": ["id", "name_key", "status", "health", "movement", "attack", "rewards"],
+        "required": ["id", "name_key", "status", "combat_role", "health", "defense", "movement", "attack", "presentation", "spawn", "rewards"],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
           "name_key": {"type": "string", "minLength": 1},
           "status": {"type": "string", "minLength": 1},
+          "combat_role": {"type": "string", "minLength": 1},
           "health": {
             "type": "object",
             "required": ["max"],
+            "properties": {"max": {"type": "number", "exclusiveMinimum": 0}},
+            "additionalProperties": false
+          },
+          "defense": {
+            "type": "object",
+            "required": ["armor", "magic_resistance"],
             "properties": {
-              "max": {"type": "number", "exclusiveMinimum": 0}
+              "armor": {"type": "number", "minimum": 0},
+              "magic_resistance": {"type": "number", "minimum": 0}
             },
             "additionalProperties": false
           },
@@ -36,20 +44,36 @@
           },
           "attack": {
             "type": "object",
-            "required": ["damage", "range", "cooldown"],
+            "required": ["damage", "damage_type", "attack_style", "range", "attacks_per_second"],
             "properties": {
               "damage": {"type": "number", "exclusiveMinimum": 0},
+              "damage_type": {"enum": ["physical", "magic"]},
+              "attack_style": {"enum": ["melee", "ranged"]},
               "range": {"type": "number", "exclusiveMinimum": 0},
-              "cooldown": {"type": "number", "exclusiveMinimum": 0}
+              "attacks_per_second": {"type": "number", "exclusiveMinimum": 0}
             },
+            "additionalProperties": false
+          },
+          "presentation": {
+            "type": "object",
+            "required": ["visual_kind", "body_color", "accent_color"],
+            "properties": {
+              "visual_kind": {"enum": ["raider", "brute", "archer", "hexer"]},
+              "body_color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+              "accent_color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"}
+            },
+            "additionalProperties": false
+          },
+          "spawn": {
+            "type": "object",
+            "required": ["weight"],
+            "properties": {"weight": {"type": "number", "exclusiveMinimum": 0}},
             "additionalProperties": false
           },
           "rewards": {
             "type": "object",
             "required": ["run_gold"],
-            "properties": {
-              "run_gold": {"type": "integer", "minimum": 1}
-            },
+            "properties": {"run_gold": {"type": "integer", "minimum": 1}},
             "additionalProperties": false
           }
         },
