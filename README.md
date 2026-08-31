@@ -2,6 +2,8 @@
 
 Top-down historical-fantasy survivor with army building, roguelite runs, and persistent meta progression.
 
+Rise as a legendary ruler, survive enemy hordes, command ancient armies, collect gold, unlock skills, summon iconic warriors, and defeat colossal bosses.
+
 ## Phase 1 status
 
 This repository contains the technical foundation and the first playable movement slice:

@@ -1,5 +1,8 @@
 # Godot generated files
 .godot/
+.import/
+*.translation
+.nomedia
 
 # Local toolchain and export artifacts
 .tools/
@@ -7,6 +10,13 @@ build/*
 !build/.gdignore
 dist/
 tools/export_templates/*.zip
+export.cfg
+export_credentials.cfg
+
+# Mono-specific generated files
+.mono/
+data_*/
+mono_crash.*.json
 
 # Logs and local-only files
 *.log
