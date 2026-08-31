@@ -9,6 +9,7 @@ extends Control
 @onready var army_button: Button = %ArmyButton
 @onready var rankings_button: Button = %RankingsButton
 @onready var settings_button: Button = %SettingsButton
+@onready var exit_button: Button = %ExitButton
 @onready var language_picker: OptionButton = %LanguagePicker
 @onready var platform_label: Label = %PlatformLabel
 @onready var roster_label: Label = %RosterLabel
@@ -19,6 +20,7 @@ func _ready() -> void:
 	LocalizationService.locale_changed.connect(_on_locale_changed)
 	continue_button.pressed.connect(_on_continue_button_pressed)
 	start_button.pressed.connect(_on_start_button_pressed)
+	exit_button.pressed.connect(_on_exit_button_pressed)
 	_setup_language_picker()
 	_refresh_text()
 
@@ -47,6 +49,8 @@ func _refresh_text() -> void:
 	army_button.text = LocalizationService.translate_key("menu.army")
 	rankings_button.text = LocalizationService.translate_key("menu.rankings")
 	settings_button.text = LocalizationService.translate_key("menu.settings")
+	exit_button.text = LocalizationService.translate_key("menu.exit_game")
+	exit_button.visible = PlatformService.supports_application_quit()
 	continue_button.visible = GameSessionService.has_active_session()
 	platform_label.text = LocalizationService.translate_key(
 		"phase0.platform",
@@ -77,6 +81,10 @@ func _on_continue_button_pressed() -> void:
 	if not GameSessionService.has_active_session():
 		return
 	_open_movement_drill()
+
+
+func _on_exit_button_pressed() -> void:
+	PlatformService.request_application_quit()
 
 
 func _open_movement_drill() -> void:

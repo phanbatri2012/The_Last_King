@@ -132,6 +132,7 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 		var health: Dictionary = enemy.get("health", {})
 		var movement: Dictionary = enemy.get("movement", {})
 		var attack: Dictionary = enemy.get("attack", {})
+		var rewards: Dictionary = enemy.get("rewards", {})
 		if float(health.get("max", 0.0)) <= 0.0:
 			push_error("Enemy health must be positive: %s" % enemy_id)
 			return false
@@ -143,6 +144,9 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 			if float(attack.get(attack_key, 0.0)) <= 0.0:
 				push_error("Enemy attack value must be positive: %s.%s" % [enemy_id, attack_key])
 				return false
+		if int(rewards.get("run_gold", 0)) <= 0:
+			push_error("Enemy run Gold reward must be positive: %s" % enemy_id)
+			return false
 		enemies[enemy_id] = enemy.duplicate(true)
 	return true
 

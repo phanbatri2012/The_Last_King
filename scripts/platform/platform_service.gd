@@ -58,6 +58,14 @@ func supports_native_leaderboard() -> bool:
 	return supports(PlatformAdapter.Capability.NATIVE_LEADERBOARD)
 
 
+func supports_application_quit() -> bool:
+	return supports(PlatformAdapter.Capability.QUIT_APPLICATION)
+
+
+func request_application_quit() -> bool:
+	return adapter != null and adapter.request_application_quit()
+
+
 func _create_adapter() -> PlatformAdapter:
 	var forced_adapter := str(ProjectSettings.get_setting("the_last_king/platform/force_adapter", ""))
 	match forced_adapter:

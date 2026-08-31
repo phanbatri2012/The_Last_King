@@ -1,9 +1,11 @@
 extends Node2D
 
 const GOBLIN_SCENE := preload("res://scenes/gameplay/goblin.tscn")
+const RUN_GOLD_PICKUP_SCENE := preload("res://scenes/gameplay/run_gold_pickup.tscn")
 const KING_SPAWN := Vector2.ZERO
 const SNAPSHOT_INTERVAL_SEC := 0.15
 const EFFECTIVE_CAMERA_LIMIT := 2147480000
+const DEFEATED_ENEMY_CLEANUP_SEC := 0.7
 const TRAINING_GOBLIN_OFFSETS := [
 	Vector2(430.0, -140.0),
 	Vector2(610.0, 190.0),
@@ -13,6 +15,7 @@ const TRAINING_GOBLIN_OFFSETS := [
 ]
 
 @onready var backdrop: MovementArenaBackdrop = %Backdrop
+@onready var enemy_spawn_director: EnemySpawnDirector = %EnemySpawnDirector
 @onready var king: KingController = %King
 @onready var joystick: MovementJoystick = %VirtualJoystick
 @onready var arena_title_label: Label = %ArenaTitleLabel
@@ -23,6 +26,7 @@ const TRAINING_GOBLIN_OFFSETS := [
 @onready var king_health_label: Label = %KingHealthLabel
 @onready var king_health_bar: ProgressBar = %KingHealthBar
 @onready var enemy_count_label: Label = %EnemyCountLabel
+@onready var run_gold_label: Label = %RunGoldLabel
 @onready var control_hint_label: Label = %ControlHintLabel
 @onready var scope_hint_label: Label = %ScopeHintLabel
 @onready var target_label: Label = %TargetLabel
@@ -36,7 +40,9 @@ const TRAINING_GOBLIN_OFFSETS := [
 var _king_config: Dictionary = {}
 var _goblin_config: Dictionary = {}
 var _training_enemies: Dictionary = {}
-var _defeated_enemy_instances: Dictionary = {}
+var _gold_pickups: Dictionary = {}
+var _goblin_run_gold_reward := 1
+var _next_pickup_serial := 1
 var _snapshot_accumulator := 0.0
 var _skip_exit_snapshot := false
 
@@ -50,11 +56,14 @@ func _ready() -> void:
 
 	_king_config = ContentDatabase.get_king(&"tran_hung_dao")
 	_goblin_config = ContentDatabase.get_enemy(&"goblin")
+	var reward_data: Dictionary = _goblin_config.get("rewards", {})
+	_goblin_run_gold_reward = maxi(int(reward_data.get("run_gold", 1)), 1)
 	king.configure(_king_config)
 	king.clear_movement_bounds()
 	king.global_position = GameSessionService.get_king_position(KING_SPAWN)
 	king.restore_health(GameSessionService.get_king_health(king.health.max_health))
 	_configure_infinite_world()
+	enemy_spawn_director.spawn_requested.connect(_on_spawn_requested)
 	_restore_or_create_training_encounter()
 
 	joystick.direction_changed.connect(king.set_virtual_direction)
@@ -64,15 +73,18 @@ func _ready() -> void:
 	king.defeated.connect(_on_king_defeated)
 	king.health.health_changed.connect(_on_king_health_changed)
 	king.auto_attack.target_changed.connect(_on_target_changed)
+	RewardGrantService.run_gold_granted.connect(_on_run_gold_granted)
 	LocalizationService.locale_changed.connect(_on_locale_changed)
 	_refresh_static_text()
 	_refresh_live_text()
 	death_overlay.visible = not king.is_combat_alive()
+	enemy_spawn_director.set_active(king.is_combat_alive())
 
 
 func _physics_process(delta: float) -> void:
 	if king.is_combat_alive():
 		GameSessionService.advance(delta)
+		enemy_spawn_director.ensure_population(_living_enemy_count())
 	_snapshot_accumulator += delta
 	if _snapshot_accumulator < SNAPSHOT_INTERVAL_SEC:
 		return
@@ -105,16 +117,22 @@ func _configure_infinite_world() -> void:
 
 func _restore_or_create_training_encounter() -> void:
 	var state := GameSessionService.get_enemy_combat_state()
-	if str(state.get("encounter_id", "")) == "phase2_combat_drill":
-		var defeated_value: Variant = state.get("defeated_instance_ids", [])
-		if defeated_value is Array:
-			for defeated_id in defeated_value:
-				_defeated_enemy_instances[str(defeated_id)] = true
+	var spawn_runtime_state: Dictionary = state.get("spawn_runtime_state", {})
+	enemy_spawn_director.configure(GameSessionService.active_session.seed, king, spawn_runtime_state)
+	_next_pickup_serial = maxi(int(state.get("next_pickup_serial", 1)), 1)
+	var encounter_id := str(state.get("encounter_id", ""))
+	if encounter_id in ["phase2_combat_drill", "phase2_endless_combat"]:
 		var living_value: Variant = state.get("living_enemies", [])
 		if living_value is Array:
 			for snapshot_value in living_value:
 				if snapshot_value is Dictionary:
 					_restore_goblin(snapshot_value)
+		var pickup_value: Variant = state.get("gold_pickups", [])
+		if pickup_value is Array:
+			for pickup_snapshot in pickup_value:
+				if pickup_snapshot is Dictionary:
+					_restore_gold_pickup(pickup_snapshot)
+		enemy_spawn_director.ensure_population(_living_enemy_count())
 		return
 
 	for index in TRAINING_GOBLIN_OFFSETS.size():
@@ -123,11 +141,12 @@ func _restore_or_create_training_encounter() -> void:
 			king.global_position + TRAINING_GOBLIN_OFFSETS[index],
 			-1.0
 		)
+	enemy_spawn_director.ensure_population(_living_enemy_count())
 
 
 func _restore_goblin(snapshot: Dictionary) -> void:
 	var instance_key := str(snapshot.get("instance_id", ""))
-	if instance_key.is_empty() or _defeated_enemy_instances.has(instance_key):
+	if instance_key.is_empty():
 		return
 	var position_data: Dictionary = snapshot.get("position", {})
 	var restored_position := Vector2(
@@ -137,7 +156,21 @@ func _restore_goblin(snapshot: Dictionary) -> void:
 	_create_goblin(instance_key, restored_position, float(snapshot.get("health", -1.0)))
 
 
+func _restore_gold_pickup(snapshot: Dictionary) -> void:
+	var pickup_id := str(snapshot.get("pickup_id", ""))
+	if pickup_id.is_empty():
+		return
+	var position_data: Dictionary = snapshot.get("position", {})
+	var restored_position := Vector2(
+		float(position_data.get("x", king.global_position.x)),
+		float(position_data.get("y", king.global_position.y))
+	)
+	_create_gold_pickup(pickup_id, restored_position, int(snapshot.get("amount", 1)))
+
+
 func _create_goblin(instance_key: String, world_position: Vector2, restored_health: float) -> void:
+	if _training_enemies.has(instance_key) and is_instance_valid(_training_enemies[instance_key]):
+		return
 	var goblin := GOBLIN_SCENE.instantiate() as GoblinController
 	if goblin == null:
 		push_error("Goblin scene could not be instantiated.")
@@ -150,6 +183,20 @@ func _create_goblin(instance_key: String, world_position: Vector2, restored_heal
 	_training_enemies[instance_key] = goblin
 
 
+func _create_gold_pickup(pickup_id: String, world_position: Vector2, amount: int) -> void:
+	if _gold_pickups.has(pickup_id) and is_instance_valid(_gold_pickups[pickup_id]):
+		return
+	var pickup := RUN_GOLD_PICKUP_SCENE.instantiate() as RunGoldPickup
+	if pickup == null:
+		push_error("Run Gold pickup scene could not be instantiated.")
+		return
+	pickup.configure(pickup_id, amount)
+	pickup.global_position = world_position
+	add_child(pickup)
+	pickup.collected.connect(_on_gold_collected)
+	_gold_pickups[pickup_id] = pickup
+
+
 func _store_combat_state() -> void:
 	if not is_instance_valid(king) or not GameSessionService.has_active_session():
 		return
@@ -160,11 +207,17 @@ func _store_combat_state() -> void:
 		var enemy := _training_enemies[instance_key] as GoblinController
 		if is_instance_valid(enemy) and enemy.is_combat_alive():
 			living_enemies.append(enemy.get_combat_snapshot())
-	var defeated_ids := PackedStringArray()
-	for instance_key in _defeated_enemy_instances.keys():
-		defeated_ids.append(str(instance_key))
-	defeated_ids.sort()
-	GameSessionService.set_enemy_combat_state(living_enemies, defeated_ids)
+	var gold_pickup_snapshots: Array[Dictionary] = []
+	for pickup_value in _gold_pickups.values():
+		var pickup := pickup_value as RunGoldPickup
+		if is_instance_valid(pickup):
+			gold_pickup_snapshots.append(pickup.get_combat_snapshot())
+	GameSessionService.set_enemy_combat_state(
+		living_enemies,
+		enemy_spawn_director.get_runtime_snapshot(),
+		gold_pickup_snapshots,
+		_next_pickup_serial
+	)
 
 
 func _living_enemy_count() -> int:
@@ -210,6 +263,10 @@ func _refresh_live_text() -> void:
 	king_health_bar.value = king.health.get_ratio() * 100.0
 	var living_count := _living_enemy_count()
 	enemy_count_label.text = LocalizationService.translate_key("phase2.enemy_count", {"count": living_count})
+	run_gold_label.text = LocalizationService.translate_key(
+		"phase2.run_gold",
+		{"amount": RewardGrantService.get_run_gold()}
+	)
 	var current_target := king.auto_attack.get_current_target()
 	if is_instance_valid(current_target) and current_target.is_combat_alive():
 		target_label.text = LocalizationService.translate_key(
@@ -221,20 +278,43 @@ func _refresh_live_text() -> void:
 			}
 		)
 	elif living_count == 0:
-		target_label.text = LocalizationService.translate_key("phase2.drill_complete")
+		target_label.text = LocalizationService.translate_key("phase2.reinforcements")
 	else:
 		target_label.text = LocalizationService.translate_key("phase2.no_target")
 
 
 func _on_enemy_defeated(enemy: GoblinController, _context: Dictionary) -> void:
-	_defeated_enemy_instances[enemy.instance_id] = true
+	var defeated_position := enemy.global_position
+	_training_enemies.erase(enemy.instance_id)
+	var pickup_id := "run_gold_%08d" % _next_pickup_serial
+	_next_pickup_serial += 1
+	_create_gold_pickup(pickup_id, defeated_position, _goblin_run_gold_reward)
+	enemy_spawn_director.schedule_replacement()
+	get_tree().create_timer(DEFEATED_ENEMY_CLEANUP_SEC).timeout.connect(enemy.queue_free)
 	_store_combat_state()
+	_refresh_live_text()
+
+
+func _on_spawn_requested(instance_key: String, world_position: Vector2) -> void:
+	_create_goblin(instance_key, world_position, -1.0)
+	_store_combat_state()
+	_refresh_live_text()
+
+
+func _on_gold_collected(pickup: RunGoldPickup, _amount: int) -> void:
+	_gold_pickups.erase(pickup.pickup_id)
+	_store_combat_state()
+	_refresh_live_text()
+
+
+func _on_run_gold_granted(_amount: int, _total: int, _context: Dictionary) -> void:
 	_refresh_live_text()
 
 
 func _on_king_defeated(_context: Dictionary) -> void:
 	joystick.reset()
 	king.set_virtual_direction(Vector2.ZERO)
+	enemy_spawn_director.set_active(false)
 	death_overlay.visible = true
 	_store_combat_state()
 	_refresh_live_text()
@@ -263,5 +343,6 @@ func _restart_combat_drill() -> void:
 func _return_to_menu() -> void:
 	joystick.reset()
 	king.set_virtual_direction(Vector2.ZERO)
+	enemy_spawn_director.set_active(false)
 	_store_combat_state()
 	SceneService.change_scene_to_file("res://scenes/menus/main_menu.tscn")

@@ -1,9 +1,10 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scenes/gameplay/movement_arena.gd" id="1_arena"]
 [ext_resource type="Script" path="res://scripts/gameplay/movement_arena_backdrop.gd" id="2_backdrop"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/king.tscn" id="3_king"]
 [ext_resource type="Script" path="res://scripts/input/virtual_joystick.gd" id="4_joystick"]
+[ext_resource type="Script" path="res://scripts/battle/enemy_spawn_director.gd" id="5_spawn"]
 
 [sub_resource type="StyleBoxFlat" id="StyleHudPanel"]
 bg_color = Color(0.025, 0.034, 0.045, 0.92)
@@ -103,6 +104,10 @@ script = ExtResource("1_arena")
 unique_name_in_owner = true
 z_index = -10
 script = ExtResource("2_backdrop")
+
+[node name="EnemySpawnDirector" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("5_spawn")
 
 [node name="King" parent="." instance=ExtResource("3_king")]
 unique_name_in_owner = true
@@ -205,6 +210,14 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.93, 0.58, 0.3, 1)
 text = "phase2.enemy_count"
+horizontal_alignment = 2
+
+[node name="RunGoldLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.78, 0.16, 1)
+theme_override_font_sizes/font_size = 16
+text = "phase2.run_gold"
 horizontal_alignment = 2
 
 [node name="BackButton" type="Button" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow"]

@@ -7,7 +7,7 @@ config_version=5
 
 config/name="The Last King"
 config/description="Top-down historical-fantasy survivor with army building and roguelite progression."
-config/version="0.2.0"
+config/version="0.2.1"
 run/main_scene="res://scenes/bootstrap/bootstrap.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
@@ -22,6 +22,7 @@ PlayerProfileService="*res://scripts/progression/player_profile_service.gd"
 LeaderboardService="*res://scripts/leaderboard/leaderboard_service.gd"
 AudioService="*res://scripts/core/audio_service.gd"
 GameSessionService="*res://scripts/battle/game_session_service.gd"
+RewardGrantService="*res://scripts/progression/reward_grant_service.gd"
 SceneService="*res://scripts/core/scene_service.gd"
 GameServices="*res://scripts/core/game_services.gd"
 

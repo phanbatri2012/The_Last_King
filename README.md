@@ -16,14 +16,15 @@ This repository contains the technical foundation and the first playable combat 
 - data-driven Trần Hưng Đạo placeholder King;
 - procedurally tiled infinite battlefield with a smooth unbounded camera;
 - normalized WASD/Arrow Keys and analog pointer/touch joystick movement;
-- data-driven Goblins with pursuit, melee attacks, health, and death;
+- data-driven Goblins with pursuit, melee attacks, health, death, and continuous replacements;
 - nearest-target selection and automatic King attacks;
 - one shared damage resolver for King and enemy damage;
-- localized combat HUD, defeat/retry flow, and in-memory Continue state;
+- bright run Gold drops, collection through one reward service, and a yellow HUD counter;
+- localized combat HUD, defeat/retry flow, desktop Exit Game button, and in-memory Continue state;
 - desktop and web export presets;
 - headless smoke tests.
 
-Enemy waves, XP, Run Level, and level-up cards intentionally begin in Phase 3.
+Escalating waves, XP, Run Level, and level-up cards intentionally begin in Phase 3.
 
 ## Toolchain
 

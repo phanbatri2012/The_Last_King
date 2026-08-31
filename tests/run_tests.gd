@@ -18,6 +18,8 @@ func _run() -> void:
 	_test_localization_catalogs()
 	_test_platform_adapter()
 	_test_battle_session_serialization()
+	_test_enemy_spawn_director_state()
+	_test_reward_grants()
 	_test_movement_input()
 	_test_movement_arena_layout()
 	_test_infinite_world()
@@ -26,6 +28,8 @@ func _run() -> void:
 	await _test_king_scene_movement()
 	await _test_auto_attack_combat()
 	await _test_goblin_attack_combat()
+	await _test_endless_respawn_and_gold_pickup()
+	await _test_desktop_menu_exit_runtime()
 	_test_pause_manager()
 	_test_default_profile()
 
@@ -42,13 +46,14 @@ func _run() -> void:
 
 func _test_project_configuration() -> void:
 	_expect(ProjectSettings.get_setting("application/config/name") == "The Last King", "Project name is canonical.")
-	_expect(ProjectSettings.get_setting("application/config/version") == "0.2.0", "Game version is independent and explicit.")
+	_expect(ProjectSettings.get_setting("application/config/version") == "0.2.1", "Game version is independent and explicit.")
 	var project_file := _read_text("res://project.godot")
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
 	_expect(FileAccess.file_exists("res://export_presets.cfg"), "Export presets exist.")
 	_expect(FileAccess.file_exists("res://.github/workflows/build-web.yml"), "GitHub Actions Web artifact workflow exists.")
 	_expect(FileAccess.file_exists("res://AGENTS.md"), "Project rules exist.")
+	_expect(ProjectSettings.has_setting("autoload/RewardGrantService"), "Central reward grant service is registered.")
 	var export_presets := _read_text("res://export_presets.cfg")
 	_expect(export_presets.contains("name=\"Web Preview\""), "A stock-template Web preview export preset exists.")
 	var web_workflow := _read_text("res://.github/workflows/build-web.yml")
@@ -63,11 +68,13 @@ func _test_scenes_load() -> void:
 	var main_menu := load("res://scenes/menus/main_menu.tscn")
 	var king := load("res://scenes/gameplay/king.tscn")
 	var goblin := load("res://scenes/gameplay/goblin.tscn")
+	var run_gold_pickup := load("res://scenes/gameplay/run_gold_pickup.tscn")
 	var movement_arena := load("res://scenes/gameplay/movement_arena.tscn")
 	_expect(bootstrap is PackedScene, "Bootstrap scene loads.")
 	_expect(main_menu is PackedScene, "Main menu scene loads.")
 	_expect(king is PackedScene, "King scene loads.")
 	_expect(goblin is PackedScene, "Goblin scene loads.")
+	_expect(run_gold_pickup is PackedScene, "Run Gold pickup scene loads.")
 	_expect(movement_arena is PackedScene, "Movement arena scene loads.")
 
 
@@ -150,6 +157,8 @@ func _test_enemy_catalog() -> void:
 		_expect(float(movement.get(movement_key, 0.0)) > 0.0, "Goblin movement value is positive: %s" % movement_key)
 	for attack_key in ["damage", "range", "cooldown"]:
 		_expect(float(attack.get(attack_key, 0.0)) > 0.0, "Goblin attack value is positive: %s" % attack_key)
+	var rewards: Dictionary = goblin.get("rewards", {})
+	_expect(int(rewards.get("run_gold", 0)) > 0, "Goblin grants a positive data-driven run Gold reward.")
 
 
 func _test_localization_catalogs() -> void:
@@ -170,6 +179,7 @@ func _test_platform_adapter() -> void:
 	_expect(adapter.initialize(), "Desktop platform adapter initializes.")
 	_expect(adapter.get_platform_name() == "desktop", "Desktop adapter reports its platform.")
 	_expect(not adapter.supports(PlatformAdapter.Capability.IAP), "Desktop adapter does not invent IAP support.")
+	_expect(adapter.supports(PlatformAdapter.Capability.QUIT_APPLICATION), "Desktop adapter exposes application quit support.")
 	for adapter_path in [
 		"res://scripts/platform/adapters/android_platform_adapter.gd",
 		"res://scripts/platform/adapters/ios_platform_adapter.gd",
@@ -181,6 +191,10 @@ func _test_platform_adapter() -> void:
 			_expect(
 				not mobile_adapter.supports(PlatformAdapter.Capability.IAP),
 				"Mobile adapter keeps IAP disabled until its bridge exists: %s" % adapter_path
+			)
+			_expect(
+				not mobile_adapter.supports(PlatformAdapter.Capability.QUIT_APPLICATION),
+				"Mobile adapter does not expose desktop application quit: %s" % adapter_path
 			)
 
 
@@ -196,6 +210,35 @@ func _test_battle_session_serialization() -> void:
 	var king_state: Dictionary = snapshot.get("king_state", {})
 	_expect(king_state.get("health") is Dictionary, "Battle session snapshots the King health state.")
 	_expect(snapshot.get("enemy_wave_state") is Dictionary, "Battle session reserves enemy combat state.")
+
+
+func _test_enemy_spawn_director_state() -> void:
+	var target := Node2D.new()
+	var director := EnemySpawnDirector.new()
+	director.configure(12345, target)
+	director.ensure_population(3)
+	_expect(director.get_pending_count() == 2, "Spawn director schedules enough Goblins to restore target population.")
+	var snapshot := director.get_runtime_snapshot()
+	_expect(int(snapshot.get("next_spawn_serial", 0)) == 1, "Spawn director snapshots its next stable instance serial.")
+	_expect(snapshot.get("pending_spawn_delays", []) is Array, "Spawn director snapshots pending replacements.")
+	var restored := EnemySpawnDirector.new()
+	restored.configure(99999, target, snapshot)
+	_expect(restored.get_pending_count() == 2, "Spawn director restores pending replacements for Continue.")
+	director.free()
+	restored.free()
+	target.free()
+
+
+func _test_reward_grants() -> void:
+	var game_session_service := root.get_node("GameSessionService")
+	var reward_grant_service := root.get_node("RewardGrantService")
+	game_session_service.start_session(&"tran_hung_dao", &"dai_viet", 777)
+	_expect(reward_grant_service.grant_run_gold(3, {"source_id": "test"}) == 3, "Reward service grants positive run Gold.")
+	_expect(reward_grant_service.get_run_gold() == 3, "Granted run Gold is stored in the active battle only.")
+	_expect(reward_grant_service.grant_run_gold(0) == 0, "Reward service rejects non-positive run Gold.")
+	_expect(reward_grant_service.get_run_gold() == 3, "Rejected rewards do not alter run Gold.")
+	game_session_service.end_session({"reason": "test_complete"})
+	_expect(reward_grant_service.grant_run_gold(3) == 0, "Reward service rejects grants without an active battle.")
 
 
 func _test_movement_input() -> void:
@@ -238,6 +281,12 @@ func _test_movement_arena_layout() -> void:
 	_expect(back_button != null and back_button.custom_minimum_size.y >= 48.0, "Back button meets the touch target baseline.")
 	var health_bar := arena.get_node("HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry/KingHealthBar") as ProgressBar
 	_expect(health_bar != null, "Combat HUD contains the King health bar.")
+	var run_gold_label := arena.get_node("HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry/RunGoldLabel") as Label
+	_expect(run_gold_label != null, "Combat HUD contains the yellow run Gold counter.")
+	if run_gold_label != null:
+		_expect(run_gold_label.get_theme_color("font_color").r > 0.9, "Run Gold counter uses a bright Gold color.")
+	var spawn_director := arena.get_node("EnemySpawnDirector") as EnemySpawnDirector
+	_expect(spawn_director != null and spawn_director.target_population == 5, "Combat arena maintains a five-Goblin population.")
 	var death_overlay := arena.get_node("HudLayer/DeathOverlay") as Control
 	_expect(death_overlay != null, "Combat HUD contains the defeat overlay.")
 	var retry_button := arena.get_node("HudLayer/DeathOverlay/Center/Panel/Content/RetryButton") as Button
@@ -245,6 +294,11 @@ func _test_movement_arena_layout() -> void:
 	var defeat_back_button := arena.get_node("HudLayer/DeathOverlay/Center/Panel/Content/DefeatBackButton") as Button
 	_expect(defeat_back_button != null and defeat_back_button.custom_minimum_size.y >= 48.0, "Defeat overlay offers a touch-accessible return to court.")
 	arena.free()
+	var packed_menu := load("res://scenes/menus/main_menu.tscn") as PackedScene
+	var menu := packed_menu.instantiate()
+	var exit_button := menu.get_node("Center/Panel/Content/ExitButton") as Button
+	_expect(exit_button != null and exit_button.custom_minimum_size.y >= 48.0, "Main menu offers a touch-accessible Exit Game button.")
+	menu.free()
 
 
 func _test_infinite_world() -> void:
@@ -434,6 +488,71 @@ func _test_goblin_attack_combat() -> void:
 	_expect(king.health.current_health < starting_health, "Goblin melee attacks damage the King through the shared resolver.")
 	king.queue_free()
 	goblin.queue_free()
+	await process_frame
+
+
+func _test_endless_respawn_and_gold_pickup() -> void:
+	var game_session_service := root.get_node("GameSessionService")
+	var reward_grant_service := root.get_node("RewardGrantService")
+	game_session_service.start_session(&"tran_hung_dao", &"dai_viet", 24680)
+	var packed_arena := load("res://scenes/gameplay/movement_arena.tscn") as PackedScene
+	var arena := packed_arena.instantiate()
+	root.add_child(arena)
+	await process_frame
+	var arena_king := arena.get_node("King") as KingController
+	arena_king.follow_camera.enabled = false
+	arena_king.set_keyboard_enabled(false)
+	arena_king.auto_attack.set_combat_enabled(false)
+	var initial_goblins: Array[GoblinController] = []
+	for child in arena.get_children():
+		if child is GoblinController:
+			var goblin := child as GoblinController
+			goblin.set_combat_enabled(false)
+			initial_goblins.append(goblin)
+	_expect(initial_goblins.size() == 5, "Endless encounter starts with five Goblins.")
+	if initial_goblins.is_empty():
+		arena.queue_free()
+		await process_frame
+		game_session_service.end_session({"reason": "test_failed"})
+		return
+	DamageResolver.apply_damage(initial_goblins[0].health, 999.0, {"source_id": "integration_test"})
+	await process_frame
+	var dropped_gold: RunGoldPickup
+	for child in arena.get_children():
+		if child is RunGoldPickup:
+			dropped_gold = child as RunGoldPickup
+			break
+	_expect(dropped_gold != null, "Defeated Goblin drops a visible run Gold pickup node.")
+	if dropped_gold != null:
+		_expect(dropped_gold.amount == 3, "Gold pickup uses the Goblin's data-driven reward amount.")
+		dropped_gold.global_position = arena_king.global_position
+		for _frame in 3:
+			await physics_frame
+		_expect(reward_grant_service.get_run_gold() == 3, "King collects the dropped run Gold through Area2D overlap.")
+	for _frame in 110:
+		await physics_frame
+	var living_goblins := 0
+	for child in arena.get_children():
+		if child is GoblinController and child.is_combat_alive():
+			living_goblins += 1
+	_expect(living_goblins == 5, "A replacement Goblin restores the endless encounter population.")
+	arena.queue_free()
+	await process_frame
+	game_session_service.end_session({"reason": "test_complete"})
+
+
+func _test_desktop_menu_exit_runtime() -> void:
+	var game_services := root.get_node("GameServices")
+	var localization_service := root.get_node("LocalizationService")
+	_expect(game_services.initialize(), "Game services initialize for menu runtime verification.")
+	var packed_menu := load("res://scenes/menus/main_menu.tscn") as PackedScene
+	var menu := packed_menu.instantiate()
+	root.add_child(menu)
+	await process_frame
+	var exit_button := menu.get_node("Center/Panel/Content/ExitButton") as Button
+	_expect(exit_button.visible, "Exit Game button is visible in the Windows desktop runtime.")
+	_expect(exit_button.text == localization_service.translate_key("menu.exit_game"), "Exit Game button uses localized text.")
+	menu.queue_free()
 	await process_frame
 
 

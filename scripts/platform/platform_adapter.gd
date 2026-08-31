@@ -10,6 +10,7 @@ enum Capability {
 	REWARDED_ADS,
 	INTERSTITIAL_ADS,
 	IAP,
+	QUIT_APPLICATION,
 }
 
 var initialized := false
@@ -53,4 +54,8 @@ func purchase(_product_id: String) -> bool:
 
 
 func restore_purchases() -> bool:
+	return false
+
+
+func request_application_quit() -> bool:
 	return false

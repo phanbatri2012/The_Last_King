@@ -89,13 +89,20 @@ func get_king_health(fallback: float) -> float:
 	return fallback if current < 0.0 else current
 
 
-func set_enemy_combat_state(living_enemies: Array[Dictionary], defeated_instance_ids: PackedStringArray) -> void:
+func set_enemy_combat_state(
+	living_enemies: Array[Dictionary],
+	spawn_runtime_state: Dictionary,
+	gold_pickups: Array[Dictionary],
+	next_pickup_serial: int
+) -> void:
 	if active_session == null:
 		return
 	active_session.enemy_wave_state = {
-		"encounter_id": "phase2_combat_drill",
+		"encounter_id": "phase2_endless_combat",
 		"living_enemies": living_enemies.duplicate(true),
-		"defeated_instance_ids": Array(defeated_instance_ids),
+		"spawn_runtime_state": spawn_runtime_state.duplicate(true),
+		"gold_pickups": gold_pickups.duplicate(true),
+		"next_pickup_serial": maxi(next_pickup_serial, 1),
 	}
 
 

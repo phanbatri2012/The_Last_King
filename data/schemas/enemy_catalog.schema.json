@@ -11,7 +11,7 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "name_key", "status", "health", "movement", "attack"],
+        "required": ["id", "name_key", "status", "health", "movement", "attack", "rewards"],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
           "name_key": {"type": "string", "minLength": 1},
@@ -41,6 +41,14 @@
               "damage": {"type": "number", "exclusiveMinimum": 0},
               "range": {"type": "number", "exclusiveMinimum": 0},
               "cooldown": {"type": "number", "exclusiveMinimum": 0}
+            },
+            "additionalProperties": false
+          },
+          "rewards": {
+            "type": "object",
+            "required": ["run_gold"],
+            "properties": {
+              "run_gold": {"type": "integer", "minimum": 1}
             },
             "additionalProperties": false
           }

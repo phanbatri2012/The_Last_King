@@ -19,6 +19,7 @@ func initialize() -> bool:
 		LeaderboardService,
 		AudioService,
 		GameSessionService,
+		RewardGrantService,
 		SceneService,
 	]
 

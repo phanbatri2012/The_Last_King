@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "content_version": "phase2.0",
+  "content_version": "phase2.1",
   "enemies": [
     {
       "id": "goblin",
@@ -18,6 +18,9 @@
         "damage": 22.0,
         "range": 72.0,
         "cooldown": 1.15
+      },
+      "rewards": {
+        "run_gold": 3
       }
     }
   ]
