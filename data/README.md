@@ -7,6 +7,6 @@ The Phase 0 roster is planning metadata, not production-ready historical researc
 - `factions/faction_roster.json`: open-ended faction planning roster.
 - `kings/kings.json`: versioned King movement, health, defense, Army Capacity, and attack data. The current slice contains Trần Hưng Đạo only.
 - `combat/weapon_archetypes.json`: shared balance bands for sword, blade, bow, and crossbow Kings. Melee bands guarantee higher damage; ranged bands guarantee longer reach while preserving per-King range values.
-- `enemies/enemies.json`: versioned enemy role, health, defense, movement, hatred range, attack, presentation, weighted spawn, and reward data. Phase 3 contains Raider, Brute, Archer, and Hexer Goblins.
+- `enemies/enemies.json`: versioned enemy role, health, defense, movement, hatred range, dodgeable projectile, presentation, weighted spawn, Gold, and Healing Orb data. Phase 4B contains Raider, Brute, Archer, and Hexer Goblins.
 - `units/units.json`: summon cost, capacity, combat, formation, and presentation data. Phase 4A contains the Đại Việt Spearman.
 - `schemas/`: validation contracts for content tooling.

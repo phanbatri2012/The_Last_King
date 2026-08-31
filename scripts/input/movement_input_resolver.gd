@@ -4,11 +4,18 @@ extends RefCounted
 const ACTIVE_EPSILON_SQUARED := 0.0001
 
 
-static func resolve(keyboard_direction: Vector2, virtual_direction: Vector2) -> Vector2:
+static func resolve(
+	keyboard_direction: Vector2,
+	virtual_direction: Vector2,
+	pointer_direction: Vector2 = Vector2.ZERO
+) -> Vector2:
 	var keyboard := keyboard_direction.limit_length(1.0)
 	var virtual := virtual_direction.limit_length(1.0)
+	var pointer := pointer_direction.limit_length(1.0)
 	if virtual.length_squared() > ACTIVE_EPSILON_SQUARED:
 		return virtual
+	if pointer.length_squared() > ACTIVE_EPSILON_SQUARED:
+		return pointer
 	return keyboard
 
 

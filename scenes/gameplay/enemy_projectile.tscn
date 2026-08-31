@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/enemy_projectile.gd" id="1_projectile"]
+
+[sub_resource type="CircleShape2D" id="CircleProjectile"]
+resource_local_to_scene = true
+radius = 5.0
+
+[node name="EnemyProjectile" type="Area2D"]
+z_index = 4
+collision_layer = 0
+collision_mask = 5
+monitoring = false
+monitorable = false
+script = ExtResource("1_projectile")
+
+[node name="CollisionShape" type="CollisionShape2D" parent="."]
+unique_name_in_owner = true
+shape = SubResource("CircleProjectile")

@@ -18,6 +18,7 @@ signal defeated(context: Dictionary)
 var king_id: StringName = &"tran_hung_dao"
 var weapon_archetype_id: StringName = &"sword"
 var _virtual_direction := Vector2.ZERO
+var _pointer_direction := Vector2.ZERO
 var _keyboard_enabled := true
 var _movement_enabled := true
 var _movement_bounds_enabled := false
@@ -38,7 +39,11 @@ func _physics_process(_delta: float) -> void:
 		keyboard_direction = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var desired_direction := Vector2.ZERO
 	if _movement_enabled:
-		desired_direction = MovementInputResolver.resolve(keyboard_direction, _virtual_direction)
+		desired_direction = MovementInputResolver.resolve(
+			keyboard_direction,
+			_virtual_direction,
+			_pointer_direction
+		)
 	velocity = MovementInputResolver.to_velocity(desired_direction, move_speed)
 	move_and_slide()
 	if _movement_bounds_enabled:
@@ -81,6 +86,10 @@ func set_virtual_direction(direction: Vector2) -> void:
 	_virtual_direction = direction.limit_length(1.0)
 
 
+func set_pointer_direction(direction: Vector2) -> void:
+	_pointer_direction = direction.limit_length(1.0)
+
+
 func set_keyboard_enabled(enabled: bool) -> void:
 	_keyboard_enabled = enabled
 
@@ -89,6 +98,7 @@ func set_movement_enabled(enabled: bool) -> void:
 	_movement_enabled = enabled
 	if not enabled:
 		_virtual_direction = Vector2.ZERO
+		_pointer_direction = Vector2.ZERO
 
 
 func set_movement_bounds(bounds: Rect2) -> void:
@@ -138,6 +148,8 @@ func _on_health_changed(current: float, maximum: float, delta: float, _context: 
 	visual.set_health(current, maximum)
 	if delta < 0.0:
 		visual.play_hurt()
+	elif delta > 0.0:
+		visual.play_heal(delta)
 
 
 func _on_died(context: Dictionary) -> void:

@@ -3,6 +3,7 @@ extends CharacterBody2D
 
 signal defeated(enemy: GoblinController, context: Dictionary)
 signal engagement_changed(enemy: GoblinController, engaged: bool)
+signal projectile_requested(request: Dictionary)
 
 @onready var visual: GoblinPlaceholderVisual = %Visual
 @onready var attack_visual: EnemyAttackVisual = %AttackVisual
@@ -22,12 +23,19 @@ var attack_range := 72.0
 var attacks_per_second := 0.87
 var attack_style := "melee"
 var damage_type := "physical"
+var attack_windup := 0.0
+var projectile_speed := 0.0
+var projectile_radius := 0.0
+var projectile_lifetime := 0.0
+var projectile_visual_kind := "arrow"
 
 var _primary_target: Node2D
 var _target: Node2D
 var _cooldown_remaining := 0.0
 var _combat_enabled := true
 var _engaged := false
+var _windup_remaining := 0.0
+var _locked_attack_direction := Vector2.LEFT
 
 
 func _ready() -> void:
@@ -42,6 +50,12 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_cooldown_remaining = maxf(_cooldown_remaining - delta, 0.0)
+	if _windup_remaining > 0.0:
+		_windup_remaining = maxf(_windup_remaining - delta, 0.0)
+		_stop_moving()
+		if _windup_remaining <= 0.0:
+			_release_projectile()
+		return
 	_refresh_target_fallback()
 	if not _combat_enabled or not is_combat_alive() or not _is_target_alive(_target):
 		_stop_moving()
@@ -90,6 +104,12 @@ func configure(
 	attacks_per_second = maxf(float(attack_data.get("attacks_per_second", attacks_per_second)), 0.01)
 	attack_style = str(attack_data.get("attack_style", attack_style))
 	damage_type = str(attack_data.get("damage_type", damage_type))
+	attack_windup = maxf(float(attack_data.get("windup", 0.0)), 0.0)
+	var projectile_data: Dictionary = attack_data.get("projectile", {})
+	projectile_speed = maxf(float(projectile_data.get("speed", 0.0)), 0.0)
+	projectile_radius = maxf(float(projectile_data.get("radius", 0.0)), 0.0)
+	projectile_lifetime = maxf(float(projectile_data.get("lifetime", 0.0)), 0.0)
+	projectile_visual_kind = str(projectile_data.get("visual_kind", "arrow"))
 	visual.configure(presentation_data)
 	attack_visual.configure(attack_style, damage_type)
 	_apply_collision_radius()
@@ -109,6 +129,7 @@ func set_retaliation_target(new_target: Node2D) -> void:
 func set_combat_enabled(enabled: bool) -> void:
 	_combat_enabled = enabled
 	if not enabled:
+		_cancel_pending_attack()
 		_stop_moving()
 
 
@@ -126,6 +147,7 @@ func set_targeted(targeted: bool) -> void:
 
 func retire_without_reward() -> void:
 	_combat_enabled = false
+	_cancel_pending_attack()
 	_stop_moving()
 	remove_from_group("combat_enemies")
 	collision_shape.set_deferred("disabled", true)
@@ -148,13 +170,16 @@ func get_attack_cooldown() -> float:
 func _try_attack(direction: Vector2, target_distance: float) -> void:
 	if _cooldown_remaining > 0.0:
 		return
+	if attack_style == "ranged":
+		_begin_ranged_attack(direction)
+		return
 	var target_health := _target.get("health") as HealthComponent
 	var target_defense := _target.get("defense") as DefenseComponent
 	if target_health == null:
 		return
 	_cooldown_remaining = get_attack_cooldown()
 	visual.play_attack(direction)
-	attack_visual.play(direction, target_distance)
+	attack_visual.play_melee(direction, target_distance)
 	DamageResolver.apply_damage(
 		target_health,
 		attack_damage,
@@ -168,6 +193,42 @@ func _try_attack(direction: Vector2, target_distance: float) -> void:
 		},
 		target_defense
 	)
+
+
+func _begin_ranged_attack(direction: Vector2) -> void:
+	_locked_attack_direction = direction.normalized() if not direction.is_zero_approx() else Vector2.LEFT
+	_cooldown_remaining = get_attack_cooldown()
+	_windup_remaining = maxf(attack_windup, 0.05)
+	visual.play_attack(_locked_attack_direction)
+	attack_visual.play_telegraph(_locked_attack_direction, attack_range, _windup_remaining)
+
+
+func _release_projectile() -> void:
+	if not _combat_enabled or not is_combat_alive():
+		return
+	projectile_requested.emit({
+		"projectile_id": "%s_projectile" % instance_id,
+		"position": global_position + _locked_attack_direction * (collision_radius + projectile_radius + 4.0),
+		"direction": _locked_attack_direction,
+		"speed": projectile_speed,
+		"radius": projectile_radius,
+		"lifetime": projectile_lifetime,
+		"visual_kind": projectile_visual_kind,
+		"damage": attack_damage,
+		"damage_type": damage_type,
+		"context": {
+			"source_kind": "enemy",
+			"source_id": str(enemy_id),
+			"source_instance_id": instance_id,
+			"damage_type": damage_type,
+			"attack_style": "ranged",
+		},
+	})
+
+
+func _cancel_pending_attack() -> void:
+	_windup_remaining = 0.0
+	attack_visual.cancel()
 
 
 func _refresh_target_fallback() -> void:
@@ -218,6 +279,7 @@ func _on_health_changed(current: float, maximum: float, delta: float, context: D
 
 func _on_died(context: Dictionary) -> void:
 	_combat_enabled = false
+	_cancel_pending_attack()
 	_stop_moving()
 	remove_from_group("combat_enemies")
 	collision_shape.set_deferred("disabled", true)

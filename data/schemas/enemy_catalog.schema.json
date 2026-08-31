@@ -50,8 +50,26 @@
               "damage_type": {"enum": ["physical", "magic"]},
               "attack_style": {"enum": ["melee", "ranged"]},
               "range": {"type": "number", "exclusiveMinimum": 0},
-              "attacks_per_second": {"type": "number", "exclusiveMinimum": 0}
+              "attacks_per_second": {"type": "number", "exclusiveMinimum": 0},
+              "windup": {"type": "number", "exclusiveMinimum": 0},
+              "projectile": {
+                "type": "object",
+                "required": ["speed", "radius", "lifetime", "visual_kind"],
+                "properties": {
+                  "speed": {"type": "number", "exclusiveMinimum": 0},
+                  "radius": {"type": "number", "exclusiveMinimum": 0},
+                  "lifetime": {"type": "number", "exclusiveMinimum": 0},
+                  "visual_kind": {"enum": ["arrow", "magic_orb"]}
+                },
+                "additionalProperties": false
+              }
             },
+            "allOf": [
+              {
+                "if": {"properties": {"attack_style": {"const": "ranged"}}},
+                "then": {"required": ["windup", "projectile"]}
+              }
+            ],
             "additionalProperties": false
           },
           "presentation": {
@@ -72,8 +90,19 @@
           },
           "rewards": {
             "type": "object",
-            "required": ["run_gold"],
-            "properties": {"run_gold": {"type": "integer", "minimum": 1}},
+            "required": ["run_gold", "healing_orb"],
+            "properties": {
+              "run_gold": {"type": "integer", "minimum": 1},
+              "healing_orb": {
+                "type": "object",
+                "required": ["chance", "max_health_fraction"],
+                "properties": {
+                  "chance": {"type": "number", "minimum": 0, "maximum": 1},
+                  "max_health_fraction": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+                },
+                "additionalProperties": false
+              }
+            },
             "additionalProperties": false
           }
         },

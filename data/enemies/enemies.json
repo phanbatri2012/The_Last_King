@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "content_version": "phase3.0",
+  "content_version": "phase4.1",
   "enemies": [
     {
       "id": "goblin",
@@ -19,7 +19,10 @@
       },
       "presentation": {"visual_kind": "raider", "body_color": "#4b922f", "accent_color": "#9d5a25"},
       "spawn": {"weight": 42.0},
-      "rewards": {"run_gold": 3}
+      "rewards": {
+        "run_gold": 3,
+        "healing_orb": {"chance": 0.06, "max_health_fraction": 0.12}
+      }
     },
     {
       "id": "goblin_brute",
@@ -38,7 +41,10 @@
       },
       "presentation": {"visual_kind": "brute", "body_color": "#47702d", "accent_color": "#b48132"},
       "spawn": {"weight": 18.0},
-      "rewards": {"run_gold": 6}
+      "rewards": {
+        "run_gold": 6,
+        "healing_orb": {"chance": 0.15, "max_health_fraction": 0.18}
+      }
     },
     {
       "id": "goblin_archer",
@@ -53,11 +59,21 @@
         "damage_type": "physical",
         "attack_style": "ranged",
         "range": 430.0,
-        "attacks_per_second": 0.72
+        "attacks_per_second": 0.72,
+        "windup": 0.36,
+        "projectile": {
+          "speed": 620.0,
+          "radius": 5.0,
+          "lifetime": 1.2,
+          "visual_kind": "arrow"
+        }
       },
       "presentation": {"visual_kind": "archer", "body_color": "#6c9b37", "accent_color": "#d0a23c"},
       "spawn": {"weight": 25.0},
-      "rewards": {"run_gold": 4}
+      "rewards": {
+        "run_gold": 4,
+        "healing_orb": {"chance": 0.09, "max_health_fraction": 0.14}
+      }
     },
     {
       "id": "goblin_hexer",
@@ -72,11 +88,21 @@
         "damage_type": "magic",
         "attack_style": "ranged",
         "range": 350.0,
-        "attacks_per_second": 0.62
+        "attacks_per_second": 0.62,
+        "windup": 0.48,
+        "projectile": {
+          "speed": 420.0,
+          "radius": 10.0,
+          "lifetime": 1.35,
+          "visual_kind": "magic_orb"
+        }
       },
       "presentation": {"visual_kind": "hexer", "body_color": "#526c35", "accent_color": "#a65ce0"},
       "spawn": {"weight": 15.0},
-      "rewards": {"run_gold": 5}
+      "rewards": {
+        "run_gold": 5,
+        "healing_orb": {"chance": 0.1, "max_health_fraction": 0.15}
+      }
     }
   ]
 }

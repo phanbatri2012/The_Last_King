@@ -4,7 +4,7 @@ Top-down historical-fantasy survivor with army building, roguelite runs, and per
 
 Rise as a legendary ruler, survive enemy hordes, command ancient armies, collect gold, unlock skills, summon iconic warriors, and defeat colossal bosses.
 
-## Phase 4 army summoning status
+## Phase 4B survival and dodge status
 
 This repository contains the technical foundation and the first playable combat slice:
 
@@ -31,6 +31,10 @@ This repository contains the technical foundation and the first playable combat 
 - a visible touch/keyboard summon control and a 20-point King Army Capacity;
 - allied health, armor, formation following, automatic targeting, attacks, death events, and blue health bars;
 - Goblin retaliation against allied attackers and Continue snapshots for the living army;
+- real pooled Goblin arrows and magic Orbs with visible windups, travel time, collision, and dodge windows;
+- rare seeded green Healing Orb drops that restore a data-driven percentage of King maximum HP;
+- mouse-hold and touch-hold movement across the battlefield alongside WASD and the virtual joystick;
+- Continue snapshots for uncollected Healing Orbs and deterministic healing-drop RNG;
 - localized combat HUD, defeat/retry flow, desktop Exit Game button, and in-memory Continue state;
 - desktop and web export presets;
 - headless smoke tests.

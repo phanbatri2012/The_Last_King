@@ -9,7 +9,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	print("[TEST] The Last King Phase 4 army summoning")
+	print("[TEST] The Last King Phase 4B survival and dodge")
 	_test_project_configuration()
 	_test_scenes_load()
 	_test_faction_roster()
@@ -21,12 +21,14 @@ func _run() -> void:
 	_test_platform_adapter()
 	_test_battle_session_serialization()
 	_test_enemy_spawn_director_state()
+	_test_combat_drop_director()
 	_test_formation_slots()
 	_test_reward_grants()
 	_test_movement_input()
 	_test_movement_arena_layout()
 	_test_infinite_world()
 	_test_health_and_damage()
+	await _test_healing_orb_pickup()
 	_test_target_selection()
 	await _test_king_scene_movement()
 	await _test_auto_attack_combat()
@@ -34,6 +36,7 @@ func _run() -> void:
 	await _test_goblin_ranged_magic_combat()
 	await _test_spearman_combat()
 	await _test_army_summoning_and_restore()
+	await _test_healing_orb_continue()
 	await _test_endless_respawn_and_gold_pickup()
 	await _test_desktop_menu_exit_runtime()
 	_test_pause_manager()
@@ -52,7 +55,7 @@ func _run() -> void:
 
 func _test_project_configuration() -> void:
 	_expect(ProjectSettings.get_setting("application/config/name") == "The Last King", "Project name is canonical.")
-	_expect(ProjectSettings.get_setting("application/config/version") == "0.4.0", "Game version is independent and explicit.")
+	_expect(ProjectSettings.get_setting("application/config/version") == "0.4.1", "Game version is independent and explicit.")
 	var project_file := _read_text("res://project.godot")
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
@@ -78,6 +81,8 @@ func _test_scenes_load() -> void:
 	var goblin := load("res://scenes/gameplay/goblin.tscn")
 	var summoned_unit := load("res://scenes/gameplay/summoned_unit.tscn")
 	var run_gold_pickup := load("res://scenes/gameplay/run_gold_pickup.tscn")
+	var healing_orb_pickup := load("res://scenes/gameplay/healing_orb_pickup.tscn")
+	var enemy_projectile := load("res://scenes/gameplay/enemy_projectile.tscn")
 	var movement_arena := load("res://scenes/gameplay/movement_arena.tscn")
 	_expect(bootstrap is PackedScene, "Bootstrap scene loads.")
 	_expect(main_menu is PackedScene, "Main menu scene loads.")
@@ -85,6 +90,8 @@ func _test_scenes_load() -> void:
 	_expect(goblin is PackedScene, "Goblin scene loads.")
 	_expect(summoned_unit is PackedScene, "Summoned unit scene loads.")
 	_expect(run_gold_pickup is PackedScene, "Run Gold pickup scene loads.")
+	_expect(healing_orb_pickup is PackedScene, "Healing Orb pickup scene loads.")
+	_expect(enemy_projectile is PackedScene, "Pooled enemy projectile scene loads.")
 	_expect(movement_arena is PackedScene, "Movement arena scene loads.")
 
 
@@ -219,7 +226,7 @@ func _test_enemy_catalog() -> void:
 	var english := _load_json("res://localization/en-US/common.json")
 	var vietnamese := _load_json("res://localization/vi-VN/common.json")
 	_expect(int(catalog.get("schema_version", 0)) == 2, "Enemy catalog schema is versioned for multi-archetype combat.")
-	_expect(str(catalog.get("content_version", "")).begins_with("phase3"), "Enemy catalog identifies Phase 3 content.")
+	_expect(str(catalog.get("content_version", "")).begins_with("phase4"), "Enemy catalog identifies Phase 4 survival content.")
 	var enemies: Array = catalog.get("enemies", [])
 	_expect(enemies.size() >= 4, "At least four Goblin combat archetypes are available.")
 	var seen_ids: Dictionary = {}
@@ -257,6 +264,15 @@ func _test_enemy_catalog() -> void:
 		_expect(damage_type in ["physical", "magic"], "Enemy damage type is supported: %s" % enemy_id)
 		_expect(float(spawn.get("weight", 0.0)) > 0.0, "Enemy has a positive seeded spawn weight: %s" % enemy_id)
 		_expect(int(rewards.get("run_gold", 0)) > 0, "Enemy grants a positive run Gold reward: %s" % enemy_id)
+		var healing_orb: Dictionary = rewards.get("healing_orb", {})
+		_expect(float(healing_orb.get("chance", -1.0)) >= 0.0 and float(healing_orb.get("chance", 2.0)) <= 1.0, "Enemy Healing Orb chance is bounded: %s" % enemy_id)
+		_expect(float(healing_orb.get("max_health_fraction", 0.0)) > 0.0, "Enemy Healing Orb restores a positive health fraction: %s" % enemy_id)
+		if attack_style == "ranged":
+			var projectile: Dictionary = attack.get("projectile", {})
+			_expect(float(attack.get("windup", 0.0)) > 0.0, "Ranged Goblin telegraphs before firing: %s" % enemy_id)
+			for projectile_key in ["speed", "radius", "lifetime"]:
+				_expect(float(projectile.get(projectile_key, 0.0)) > 0.0, "Ranged Goblin projectile value is positive: %s/%s" % [enemy_id, projectile_key])
+			_expect(str(projectile.get("visual_kind", "")) in ["arrow", "magic_orb"], "Ranged Goblin uses a supported real projectile: %s" % enemy_id)
 		seen_ids[enemy_id] = true
 		seen_roles[combat_role] = true
 		seen_aggro_ranges[float(movement.get("aggro_range", 0.0))] = true
@@ -383,6 +399,29 @@ func _test_enemy_spawn_director_state() -> void:
 	target.free()
 
 
+func _test_combat_drop_director() -> void:
+	var guaranteed_rewards := {
+		"healing_orb": {"chance": 1.0, "max_health_fraction": 0.14},
+	}
+	var first := CombatDropDirector.new()
+	first.configure(12345)
+	var first_drop := first.roll_healing_pickup(guaranteed_rewards)
+	_expect(first_drop.get("pickup_id") == "healing_orb_00000001", "Healing drops receive stable serial IDs.")
+	_expect(is_equal_approx(float(first_drop.get("max_health_fraction", 0.0)), 0.14), "Healing drop preserves its data-driven recovery fraction.")
+	var snapshot := first.get_runtime_snapshot()
+	var restored := CombatDropDirector.new()
+	restored.configure(99999, snapshot)
+	var restored_drop := restored.roll_healing_pickup(guaranteed_rewards)
+	_expect(restored_drop.get("pickup_id") == "healing_orb_00000002", "Healing drop serial continues after snapshot restore.")
+	var replay := CombatDropDirector.new()
+	replay.configure(12345)
+	_expect(replay.roll_healing_pickup(guaranteed_rewards) == first_drop, "Healing drop rolls are reproducible from the battle seed.")
+	_expect(first.roll_healing_pickup({"healing_orb": {"chance": 0.0, "max_health_fraction": 0.14}}).is_empty(), "Zero drop chance never creates a Healing Orb.")
+	first.free()
+	restored.free()
+	replay.free()
+
+
 func _test_formation_slots() -> void:
 	var formation := {
 		"base_radius": 150.0,
@@ -422,6 +461,9 @@ func _test_movement_input() -> void:
 	_expect(diagonal.is_equal_approx(Vector2.ONE.normalized()), "Keyboard direction is preserved after normalization.")
 	var analog := Vector2(0.35, -0.2)
 	_expect(MovementInputResolver.resolve(Vector2.LEFT, analog).is_equal_approx(analog), "Active joystick input takes priority over keyboard input.")
+	var pointer := Vector2(0.25, 0.5)
+	_expect(MovementInputResolver.resolve(Vector2.LEFT, Vector2.ZERO, pointer).is_equal_approx(pointer), "Active hold-to-move input takes priority over keyboard input.")
+	_expect(MovementInputResolver.resolve(Vector2.LEFT, analog, pointer).is_equal_approx(analog), "Virtual joystick remains higher priority than hold-to-move input.")
 	var velocity := MovementInputResolver.to_velocity(Vector2.ONE, 340.0)
 	_expect(is_equal_approx(velocity.length(), 340.0), "Movement speed is direction-independent.")
 	_expect(MovementInputResolver.to_velocity(Vector2.RIGHT, -1.0).is_zero_approx(), "Negative movement speed is rejected.")
@@ -436,6 +478,11 @@ func _test_movement_input() -> void:
 	_expect(clamped.is_equal_approx(Vector2.RIGHT), "Joystick input is clamped outside its radius.")
 	var partial := MovementJoystick.direction_from_offset(Vector2(36.0, 0.0), 72.0, 0.12)
 	_expect(partial.x > 0.0 and partial.x < 1.0, "Joystick preserves analog strength.")
+	_expect(HoldMoveInput.direction_from_screen_points(Vector2(120.0, 100.0), Vector2(100.0, 100.0), 52.0, 190.0).is_zero_approx(), "Holding near the King stays inside the movement stop radius.")
+	var hold_right := HoldMoveInput.direction_from_screen_points(Vector2(400.0, 100.0), Vector2(100.0, 100.0), 52.0, 190.0)
+	_expect(hold_right.is_equal_approx(Vector2.RIGHT), "Holding far to the right produces full rightward movement.")
+	var hold_partial := HoldMoveInput.direction_from_screen_points(Vector2(200.0, 100.0), Vector2(100.0, 100.0), 52.0, 190.0)
+	_expect(hold_partial.x > 0.0 and hold_partial.x < 1.0, "Hold-to-move preserves analog strength near the King.")
 
 
 func _test_movement_arena_layout() -> void:
@@ -470,6 +517,10 @@ func _test_movement_arena_layout() -> void:
 	_expect(spawn_director != null and spawn_director.maximum_population == 15, "Combat arena caps simultaneous Goblins at fifteen.")
 	var army_controller := arena.get_node("ArmyController") as ArmyController
 	_expect(army_controller != null, "Combat arena owns an ordinary ArmyController node.")
+	var projectile_pool := arena.get_node("EnemyProjectilePool") as EnemyProjectilePool
+	_expect(projectile_pool != null and projectile_pool.prewarm_count > 0, "Combat arena owns a prewarmed enemy projectile pool.")
+	var drop_director := arena.get_node("CombatDropDirector") as CombatDropDirector
+	_expect(drop_director != null, "Combat arena owns a seeded combat drop director.")
 	var summon_button := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/SummonButton") as Button
 	_expect(summon_button != null and summon_button.custom_minimum_size.y >= 48.0, "Summon button meets the touch target baseline.")
 	var army_capacity_label := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/ArmyCapacityLabel") as Label
@@ -545,8 +596,51 @@ func _test_health_and_damage() -> void:
 		defense
 	)
 	_expect(is_equal_approx(float(magic_hit.get("applied", 0.0)), 26.0), "Magic resistance mitigates magic damage independently from armor.")
+	var healing := HealingResolver.apply_healing(defended_health, 30.0, {"source_id": "test_heal"})
+	_expect(bool(healing.get("accepted", false)), "Healing resolver accepts recovery for a living damaged target.")
+	_expect(is_equal_approx(float(healing.get("applied", 0.0)), 30.0), "Healing resolver reports applied recovery.")
+	_expect(is_equal_approx(defended_health.current_health, 84.0), "Resolved healing restores health without exceeding maximum health.")
+	var capped_healing := HealingResolver.apply_healing(defended_health, 999.0)
+	_expect(is_equal_approx(float(capped_healing.get("applied", 0.0)), 16.0), "Healing is clamped at maximum health.")
+	_expect(not bool(HealingResolver.apply_healing(defended_health, 10.0).get("accepted", true)), "Healing resolver rejects recovery at full health.")
 	defense.free()
 	defended_health.free()
+
+
+func _test_healing_orb_pickup() -> void:
+	var packed_king := load("res://scenes/gameplay/king.tscn") as PackedScene
+	var packed_orb := load("res://scenes/gameplay/healing_orb_pickup.tscn") as PackedScene
+	if packed_king == null or packed_orb == null:
+		_expect(false, "Healing Orb integration fixtures load.")
+		return
+	var king := packed_king.instantiate() as KingController
+	var orb := packed_orb.instantiate() as HealingOrbPickup
+	king.global_position = Vector2.ZERO
+	orb.global_position = Vector2.ZERO
+	root.add_child(king)
+	root.add_child(orb)
+	await process_frame
+	king.follow_camera.enabled = false
+	king.set_keyboard_enabled(false)
+	king.set_movement_enabled(false)
+	orb.configure("healing_orb_test", 0.14)
+	for _frame in 3:
+		await physics_frame
+	_expect(is_instance_valid(orb) and not orb.is_queued_for_deletion(), "A full-health King does not consume a Healing Orb.")
+	DamageResolver.apply_damage(king.health, 100.0, {"damage_type": "physical"})
+	var damaged_health := king.health.current_health
+	orb.global_position = Vector2(120.0, 0.0)
+	for _frame in 2:
+		await physics_frame
+	orb.global_position = king.global_position
+	for _frame in 3:
+		await physics_frame
+	_expect(king.health.current_health > damaged_health, "A damaged King collects a Healing Orb and recovers health.")
+	_expect(is_equal_approx(king.health.current_health, damaged_health + king.health.max_health * 0.14), "Healing Orb restores its configured maximum-health fraction.")
+	_expect(king.visual.is_heal_feedback_active(), "King displays green recovery feedback after collecting a Healing Orb.")
+	_expect(not is_instance_valid(orb) or orb.is_queued_for_deletion(), "A successfully collected Healing Orb is consumed.")
+	king.queue_free()
+	await process_frame
 
 
 func _test_target_selection() -> void:
@@ -594,6 +688,15 @@ func _test_king_scene_movement() -> void:
 		await physics_frame
 	_expect(king.global_position.y > 0.0, "Virtual joystick input moves the King vertically.")
 	_expect(is_equal_approx(king.global_position.x, x_after_horizontal), "Vertical movement does not drift horizontally.")
+
+	king.global_position = Vector2.ZERO
+	king.set_virtual_direction(Vector2.ZERO)
+	king.set_pointer_direction(Vector2.LEFT)
+	for _frame in 4:
+		await physics_frame
+	_expect(king.global_position.x < 0.0, "Hold-to-move direction moves the King while keyboard input is disabled.")
+	_expect(absf(king.global_position.y) < 0.01, "Pointer horizontal movement does not drift vertically.")
+	king.set_pointer_direction(Vector2.ZERO)
 
 	king.global_position = Vector2(99.0, 0.0)
 	king.set_virtual_direction(Vector2.RIGHT)
@@ -767,6 +870,10 @@ func _test_goblin_ranged_magic_combat() -> void:
 	if packed_king == null or packed_goblin == null:
 		_expect(false, "Ranged magic combat fixtures load.")
 		return
+	var projectile_pool := EnemyProjectilePool.new()
+	projectile_pool.prewarm_count = 2
+	projectile_pool.maximum_count = 4
+	root.add_child(projectile_pool)
 	var king := packed_king.instantiate() as KingController
 	var hexer := packed_goblin.instantiate() as GoblinController
 	king.global_position = Vector2.ZERO
@@ -792,21 +899,55 @@ func _test_goblin_ranged_magic_combat() -> void:
 		return
 	king.configure(king_records[0])
 	king.auto_attack.set_combat_enabled(false)
-	var rapid_attack: Dictionary = hexer_data.get("attack", {}).duplicate(true)
-	rapid_attack["attacks_per_second"] = 50.0
-	hexer_data["attack"] = rapid_attack
+	var controlled_attack: Dictionary = hexer_data.get("attack", {}).duplicate(true)
+	controlled_attack["attacks_per_second"] = 0.2
+	hexer_data["attack"] = controlled_attack
 	hexer.configure(hexer_data, "magic_integration_goblin")
 	hexer.set_target(king)
+	hexer.projectile_requested.connect(projectile_pool.request_projectile)
 	var starting_health := king.health.current_health
-	for _frame in 5:
+	for _frame in 10:
 		await physics_frame
 	_expect(hexer.is_engaged(), "Goblin Hexer engages when the King enters its individual hatred range.")
 	_expect(hexer.attack_style == "ranged", "Goblin Hexer uses a ranged attack style.")
 	_expect(hexer.damage_type == "magic", "Goblin Hexer deals magic damage.")
 	_expect(hexer.attack_visual.attack_style == "ranged" and hexer.attack_visual.damage_type == "magic", "Goblin Hexer uses the ranged magic attack visual.")
-	_expect(king.health.current_health < starting_health, "Ranged magic Goblin damages the King without entering melee range.")
+	_expect(is_equal_approx(king.health.current_health, starting_health), "Ranged Goblin telegraph does not apply instant damage.")
+	_expect(projectile_pool.get_active_count() == 0, "Ranged Goblin has not released a projectile before its windup completes.")
+	for _frame in 28:
+		await physics_frame
+	_expect(projectile_pool.get_active_count() == 1, "Goblin Hexer releases one pooled projectile after telegraphing.")
+	_expect(is_equal_approx(king.health.current_health, starting_health), "Projectile travel time leaves a window for the King to dodge.")
+	for _frame in 55:
+		await physics_frame
+	_expect(king.health.current_health < starting_health, "A real magic projectile damages the stationary King on collision.")
+	_expect(projectile_pool.get_total_created() == 2, "Projectile pool reuses its prewarmed lightweight objects.")
+
+	hexer.set_combat_enabled(false)
+	HealingResolver.apply_healing(king.health, 999.0)
+	var health_before_dodge := king.health.current_health
+	king.global_position = Vector2.ZERO
+	var missed_projectile := projectile_pool.request_projectile({
+		"projectile_id": "dodge_test",
+		"position": Vector2(-220.0, 0.0),
+		"direction": Vector2.RIGHT,
+		"speed": 500.0,
+		"radius": 5.0,
+		"lifetime": 0.8,
+		"visual_kind": "arrow",
+		"damage": 20.0,
+		"damage_type": "physical",
+		"context": {"source_kind": "enemy", "attack_style": "ranged", "damage_type": "physical"},
+	})
+	_expect(missed_projectile != null, "Projectile pool accepts a dodge test shot.")
+	king.global_position = Vector2(0.0, 140.0)
+	for _frame in 55:
+		await physics_frame
+	_expect(is_equal_approx(king.health.current_health, health_before_dodge), "King can sidestep a projectile whose direction was locked when fired.")
+	_expect(projectile_pool.get_active_count() == 0, "A missed projectile expires and returns to the pool.")
 	king.queue_free()
 	hexer.queue_free()
+	projectile_pool.queue_free()
 	await process_frame
 
 
@@ -904,6 +1045,58 @@ func _test_army_summoning_and_restore() -> void:
 	game_session_service.end_session({"reason": "test_complete"})
 
 
+func _test_healing_orb_continue() -> void:
+	var game_session_service := root.get_node("GameSessionService")
+	game_session_service.start_session(&"tran_hung_dao", &"dai_viet", 13579)
+	var packed_arena := load("res://scenes/gameplay/movement_arena.tscn") as PackedScene
+	if packed_arena == null:
+		_expect(false, "Healing Orb Continue arena fixture loads.")
+		game_session_service.end_session({"reason": "test_failed"})
+		return
+	var arena := packed_arena.instantiate()
+	root.add_child(arena)
+	await process_frame
+	var arena_king := arena.get_node("King") as KingController
+	arena_king.follow_camera.enabled = false
+	arena_king.set_keyboard_enabled(false)
+	arena_king.auto_attack.set_combat_enabled(false)
+	(arena.get_node("EnemySpawnDirector") as EnemySpawnDirector).set_active(false)
+	for child in arena.get_children():
+		if child is GoblinController:
+			(child as GoblinController).set_combat_enabled(false)
+	var saved_position := arena_king.global_position + Vector2(320.0, -90.0)
+	arena.call("_create_healing_pickup", "healing_orb_continue", saved_position, 0.18)
+	arena.call("_store_combat_state")
+	var stored_state: Dictionary = game_session_service.get_enemy_combat_state()
+	var stored_healing: Array = stored_state.get("healing_pickups", [])
+	_expect(stored_healing.size() == 1, "Battle snapshot stores every uncollected Healing Orb.")
+	_expect(stored_state.get("drop_runtime_state", {}) is Dictionary and not stored_state.get("drop_runtime_state", {}).is_empty(), "Battle snapshot stores deterministic healing-drop RNG state.")
+	arena.queue_free()
+	await process_frame
+
+	var restored_arena := packed_arena.instantiate()
+	root.add_child(restored_arena)
+	await process_frame
+	var restored_king := restored_arena.get_node("King") as KingController
+	restored_king.follow_camera.enabled = false
+	restored_king.set_keyboard_enabled(false)
+	restored_king.auto_attack.set_combat_enabled(false)
+	(restored_arena.get_node("EnemySpawnDirector") as EnemySpawnDirector).set_active(false)
+	var restored_orb: HealingOrbPickup
+	for child in restored_arena.get_children():
+		if child is GoblinController:
+			(child as GoblinController).set_combat_enabled(false)
+		elif child is HealingOrbPickup and (child as HealingOrbPickup).pickup_id == "healing_orb_continue":
+			restored_orb = child as HealingOrbPickup
+	_expect(restored_orb != null, "Continue restores an uncollected Healing Orb.")
+	if restored_orb != null:
+		_expect(restored_orb.global_position.is_equal_approx(saved_position), "Continue restores the Healing Orb world position.")
+		_expect(is_equal_approx(restored_orb.max_health_fraction, 0.18), "Continue restores the Healing Orb recovery fraction.")
+	restored_arena.queue_free()
+	await process_frame
+	game_session_service.end_session({"reason": "test_complete"})
+
+
 func _test_endless_respawn_and_gold_pickup() -> void:
 	var game_session_service := root.get_node("GameSessionService")
 	var reward_grant_service := root.get_node("RewardGrantService")
@@ -916,6 +1109,42 @@ func _test_endless_respawn_and_gold_pickup() -> void:
 	arena_king.follow_camera.enabled = false
 	arena_king.set_keyboard_enabled(false)
 	arena_king.auto_attack.set_combat_enabled(false)
+	var touch_press := InputEventScreenTouch.new()
+	touch_press.index = 3
+	touch_press.pressed = true
+	touch_press.position = get_root().get_canvas_transform() * arena_king.global_position + Vector2(300.0, 0.0)
+	var touch_start_position := arena_king.global_position
+	arena.call("_unhandled_input", touch_press)
+	for _frame in 4:
+		await physics_frame
+	_expect(arena_king.global_position.x > touch_start_position.x, "Holding an unconsumed screen touch moves the King toward that side of the screen.")
+	var touch_release := InputEventScreenTouch.new()
+	touch_release.index = 3
+	touch_release.pressed = false
+	touch_release.position = touch_press.position
+	arena.call("_input", touch_release)
+	var position_after_touch_release := arena_king.global_position
+	for _frame in 3:
+		await physics_frame
+	_expect(arena_king.global_position.is_equal_approx(position_after_touch_release), "Releasing the movement touch stops pointer movement.")
+	var mouse_press := InputEventMouseButton.new()
+	mouse_press.button_index = MOUSE_BUTTON_LEFT
+	mouse_press.pressed = true
+	mouse_press.position = get_root().get_canvas_transform() * arena_king.global_position + Vector2(0.0, 300.0)
+	var mouse_start_position := arena_king.global_position
+	arena.call("_unhandled_input", mouse_press)
+	for _frame in 4:
+		await physics_frame
+	_expect(arena_king.global_position.y > mouse_start_position.y, "Holding the left mouse button moves the King toward the held screen position.")
+	var mouse_release := InputEventMouseButton.new()
+	mouse_release.button_index = MOUSE_BUTTON_LEFT
+	mouse_release.pressed = false
+	mouse_release.position = mouse_press.position
+	arena.call("_input", mouse_release)
+	var position_after_mouse_release := arena_king.global_position
+	for _frame in 3:
+		await physics_frame
+	_expect(arena_king.global_position.is_equal_approx(position_after_mouse_release), "Releasing the left mouse button stops pointer movement.")
 	for _frame in 90:
 		await physics_frame
 		for child in arena.get_children():

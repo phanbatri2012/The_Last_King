@@ -93,16 +93,20 @@ func set_enemy_combat_state(
 	living_enemies: Array[Dictionary],
 	spawn_runtime_state: Dictionary,
 	gold_pickups: Array[Dictionary],
-	next_pickup_serial: int
+	next_pickup_serial: int,
+	healing_pickups: Array[Dictionary] = [],
+	drop_runtime_state: Dictionary = {}
 ) -> void:
 	if active_session == null:
 		return
 	active_session.enemy_wave_state = {
-		"encounter_id": "phase3_endless_goblins",
+		"encounter_id": "phase4_survival_projectiles",
 		"living_enemies": living_enemies.duplicate(true),
 		"spawn_runtime_state": spawn_runtime_state.duplicate(true),
 		"gold_pickups": gold_pickups.duplicate(true),
+		"healing_pickups": healing_pickups.duplicate(true),
 		"next_pickup_serial": maxi(next_pickup_serial, 1),
+		"drop_runtime_state": drop_runtime_state.duplicate(true),
 	}
 
 

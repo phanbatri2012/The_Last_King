@@ -2,6 +2,7 @@ extends Node2D
 
 const GOBLIN_SCENE := preload("res://scenes/gameplay/goblin.tscn")
 const RUN_GOLD_PICKUP_SCENE := preload("res://scenes/gameplay/run_gold_pickup.tscn")
+const HEALING_ORB_PICKUP_SCENE := preload("res://scenes/gameplay/healing_orb_pickup.tscn")
 const KING_SPAWN := Vector2.ZERO
 const SNAPSHOT_INTERVAL_SEC := 0.15
 const EFFECTIVE_CAMERA_LIMIT := 2147480000
@@ -9,9 +10,13 @@ const DEFEATED_ENEMY_CLEANUP_SEC := 0.7
 const DENSITY_REBALANCE_INTERVAL_SEC := 1.0
 const MAX_ENEMY_DISTANCE_FROM_KING := 1700.0
 const SPEARMAN_ID := &"dai_viet_spearman"
+const HOLD_MOVE_STOP_RADIUS := 52.0
+const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 
 @onready var backdrop: MovementArenaBackdrop = %Backdrop
 @onready var enemy_spawn_director: EnemySpawnDirector = %EnemySpawnDirector
+@onready var combat_drop_director: CombatDropDirector = %CombatDropDirector
+@onready var projectile_pool: EnemyProjectilePool = %EnemyProjectilePool
 @onready var army_controller: ArmyController = %ArmyController
 @onready var king: KingController = %King
 @onready var joystick: MovementJoystick = %VirtualJoystick
@@ -41,10 +46,14 @@ var _enemy_configs: Dictionary = {}
 var _unit_configs: Dictionary = {}
 var _training_enemies: Dictionary = {}
 var _gold_pickups: Dictionary = {}
+var _healing_pickups: Dictionary = {}
 var _next_pickup_serial := 1
 var _snapshot_accumulator := 0.0
 var _density_rebalance_accumulator := 0.0
 var _skip_exit_snapshot := false
+var _hold_mouse_active := false
+var _hold_touch_index := -1
+var _hold_pointer_position := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -86,6 +95,7 @@ func _ready() -> void:
 	army_controller.unit_summoned.connect(_on_unit_summoned)
 	army_controller.unit_died.connect(_on_unit_died)
 	LocalizationService.locale_changed.connect(_on_locale_changed)
+	get_window().focus_exited.connect(_clear_hold_movement)
 	_refresh_static_text()
 	_refresh_live_text()
 	death_overlay.visible = not king.is_combat_alive()
@@ -93,6 +103,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_update_hold_move_direction()
 	if king.is_combat_alive():
 		GameSessionService.advance(delta)
 		enemy_spawn_director.ensure_population(_living_enemy_count(), _get_elapsed_time())
@@ -109,6 +120,18 @@ func _physics_process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if _hold_touch_index == -1 and king.is_combat_alive():
+			_hold_mouse_active = true
+			_hold_pointer_position = event.position
+			get_viewport().set_input_as_handled()
+		return
+	if event is InputEventScreenTouch and event.pressed:
+		if _hold_touch_index == -1 and king.is_combat_alive():
+			_hold_touch_index = event.index
+			_hold_pointer_position = event.position
+			get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("summon_spearman"):
 		get_viewport().set_input_as_handled()
 		_summon_spearman()
@@ -116,6 +139,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause_game"):
 		get_viewport().set_input_as_handled()
 		_return_to_menu()
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if not event.pressed and _hold_mouse_active:
+			_clear_hold_movement()
+		return
+	if event is InputEventMouseMotion and _hold_mouse_active:
+		_hold_pointer_position = event.position
+		return
+	if event is InputEventScreenDrag and event.index == _hold_touch_index:
+		_hold_pointer_position = event.position
+		return
+	if event is InputEventScreenTouch and not event.pressed and event.index == _hold_touch_index:
+		_clear_hold_movement()
 
 
 func _exit_tree() -> void:
@@ -159,9 +197,13 @@ func _restore_or_create_training_encounter() -> void:
 	var state := GameSessionService.get_enemy_combat_state()
 	var spawn_runtime_state: Dictionary = state.get("spawn_runtime_state", {})
 	enemy_spawn_director.configure(GameSessionService.active_session.seed, king, spawn_runtime_state)
+	combat_drop_director.configure(
+		GameSessionService.active_session.seed,
+		state.get("drop_runtime_state", {})
+	)
 	_next_pickup_serial = maxi(int(state.get("next_pickup_serial", 1)), 1)
 	var encounter_id := str(state.get("encounter_id", ""))
-	if encounter_id in ["phase2_combat_drill", "phase2_endless_combat", "phase3_endless_goblins"]:
+	if encounter_id in ["phase2_combat_drill", "phase2_endless_combat", "phase3_endless_goblins", "phase4_survival_projectiles"]:
 		var living_value: Variant = state.get("living_enemies", [])
 		if living_value is Array:
 			for snapshot_value in living_value:
@@ -172,6 +214,11 @@ func _restore_or_create_training_encounter() -> void:
 			for pickup_snapshot in pickup_value:
 				if pickup_snapshot is Dictionary:
 					_restore_gold_pickup(pickup_snapshot)
+		var healing_value: Variant = state.get("healing_pickups", [])
+		if healing_value is Array:
+			for pickup_snapshot in healing_value:
+				if pickup_snapshot is Dictionary:
+					_restore_healing_pickup(pickup_snapshot)
 		enemy_spawn_director.ensure_population(_living_enemy_count(), _get_elapsed_time())
 		return
 
@@ -209,6 +256,22 @@ func _restore_gold_pickup(snapshot: Dictionary) -> void:
 	_create_gold_pickup(pickup_id, restored_position, int(snapshot.get("amount", 1)))
 
 
+func _restore_healing_pickup(snapshot: Dictionary) -> void:
+	var pickup_id := str(snapshot.get("pickup_id", ""))
+	if pickup_id.is_empty():
+		return
+	var position_data: Dictionary = snapshot.get("position", {})
+	var restored_position := Vector2(
+		float(position_data.get("x", king.global_position.x)),
+		float(position_data.get("y", king.global_position.y))
+	)
+	_create_healing_pickup(
+		pickup_id,
+		restored_position,
+		float(snapshot.get("max_health_fraction", 0.14))
+	)
+
+
 func _create_goblin(
 	instance_key: String,
 	enemy_id: StringName,
@@ -232,6 +295,7 @@ func _create_goblin(
 	goblin.configure(enemy_config, instance_key, restored_health, restored_engaged)
 	goblin.set_target(king)
 	goblin.defeated.connect(_on_enemy_defeated)
+	goblin.projectile_requested.connect(projectile_pool.request_projectile)
 	_training_enemies[instance_key] = goblin
 
 
@@ -249,6 +313,24 @@ func _create_gold_pickup(pickup_id: String, world_position: Vector2, amount: int
 	_gold_pickups[pickup_id] = pickup
 
 
+func _create_healing_pickup(
+	pickup_id: String,
+	world_position: Vector2,
+	max_health_fraction: float
+) -> void:
+	if _healing_pickups.has(pickup_id) and is_instance_valid(_healing_pickups[pickup_id]):
+		return
+	var pickup := HEALING_ORB_PICKUP_SCENE.instantiate() as HealingOrbPickup
+	if pickup == null:
+		push_error("Healing Orb pickup scene could not be instantiated.")
+		return
+	pickup.configure(pickup_id, max_health_fraction)
+	pickup.global_position = world_position
+	add_child(pickup)
+	pickup.collected.connect(_on_healing_orb_collected)
+	_healing_pickups[pickup_id] = pickup
+
+
 func _store_combat_state() -> void:
 	if not is_instance_valid(king) or not GameSessionService.has_active_session():
 		return
@@ -264,11 +346,18 @@ func _store_combat_state() -> void:
 		var pickup := pickup_value as RunGoldPickup
 		if is_instance_valid(pickup):
 			gold_pickup_snapshots.append(pickup.get_combat_snapshot())
+	var healing_pickup_snapshots: Array[Dictionary] = []
+	for pickup_value in _healing_pickups.values():
+		var pickup := pickup_value as HealingOrbPickup
+		if is_instance_valid(pickup):
+			healing_pickup_snapshots.append(pickup.get_combat_snapshot())
 	GameSessionService.set_enemy_combat_state(
 		living_enemies,
 		enemy_spawn_director.get_runtime_snapshot(),
 		gold_pickup_snapshots,
-		_next_pickup_serial
+		_next_pickup_serial,
+		healing_pickup_snapshots,
+		combat_drop_director.get_runtime_snapshot()
 	)
 	GameSessionService.set_army_state(army_controller.get_army_snapshot())
 
@@ -377,6 +466,13 @@ func _on_enemy_defeated(enemy: GoblinController, _context: Dictionary) -> void:
 	var enemy_config: Dictionary = _enemy_configs.get(str(enemy.enemy_id), {})
 	var reward_data: Dictionary = enemy_config.get("rewards", {})
 	_create_gold_pickup(pickup_id, defeated_position, maxi(int(reward_data.get("run_gold", 1)), 1))
+	var healing_drop := combat_drop_director.roll_healing_pickup(reward_data)
+	if not healing_drop.is_empty():
+		_create_healing_pickup(
+			str(healing_drop.get("pickup_id", "")),
+			defeated_position + Vector2(42.0, 0.0),
+			float(healing_drop.get("max_health_fraction", 0.14))
+		)
 	enemy_spawn_director.schedule_replacement()
 	get_tree().create_timer(DEFEATED_ENEMY_CLEANUP_SEC).timeout.connect(enemy.queue_free)
 	_store_combat_state()
@@ -391,6 +487,12 @@ func _on_spawn_requested(instance_key: String, enemy_id: StringName, world_posit
 
 func _on_gold_collected(pickup: RunGoldPickup, _amount: int) -> void:
 	_gold_pickups.erase(pickup.pickup_id)
+	_store_combat_state()
+	_refresh_live_text()
+
+
+func _on_healing_orb_collected(pickup: HealingOrbPickup, _applied_healing: float) -> void:
+	_healing_pickups.erase(pickup.pickup_id)
 	_store_combat_state()
 	_refresh_live_text()
 
@@ -427,7 +529,9 @@ func _on_unit_died(_unit_id: StringName, _context: Dictionary) -> void:
 func _on_king_defeated(_context: Dictionary) -> void:
 	joystick.reset()
 	king.set_virtual_direction(Vector2.ZERO)
+	_clear_hold_movement()
 	enemy_spawn_director.set_active(false)
+	projectile_pool.set_combat_enabled(false)
 	army_controller.set_combat_enabled(false)
 	for enemy_value in _training_enemies.values():
 		var enemy := enemy_value as GoblinController
@@ -461,7 +565,30 @@ func _restart_combat_drill() -> void:
 func _return_to_menu() -> void:
 	joystick.reset()
 	king.set_virtual_direction(Vector2.ZERO)
+	_clear_hold_movement()
 	enemy_spawn_director.set_active(false)
+	projectile_pool.set_combat_enabled(false)
 	army_controller.set_combat_enabled(false)
 	_store_combat_state()
 	SceneService.change_scene_to_file("res://scenes/menus/main_menu.tscn")
+
+
+func _update_hold_move_direction() -> void:
+	if not (_hold_mouse_active or _hold_touch_index != -1) or not is_instance_valid(king) or not king.is_combat_alive():
+		if is_instance_valid(king):
+			king.set_pointer_direction(Vector2.ZERO)
+		return
+	var king_screen_position := get_viewport().get_canvas_transform() * king.global_position
+	king.set_pointer_direction(HoldMoveInput.direction_from_screen_points(
+		_hold_pointer_position,
+		king_screen_position,
+		HOLD_MOVE_STOP_RADIUS,
+		HOLD_MOVE_FULL_SPEED_RADIUS
+	))
+
+
+func _clear_hold_movement() -> void:
+	_hold_mouse_active = false
+	_hold_touch_index = -1
+	if is_instance_valid(king):
+		king.set_pointer_direction(Vector2.ZERO)

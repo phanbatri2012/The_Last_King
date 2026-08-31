@@ -44,3 +44,13 @@ func apply_resolved_damage(amount: float, context: Dictionary) -> float:
 		alive = false
 		died.emit(context.duplicate(true))
 	return applied
+
+
+# HealingResolver is the only gameplay system that should call this method.
+func apply_resolved_healing(amount: float, context: Dictionary) -> float:
+	if not alive or amount <= 0.0 or current_health >= max_health:
+		return 0.0
+	var applied := minf(amount, max_health - current_health)
+	current_health += applied
+	health_changed.emit(current_health, max_health, applied, context.duplicate(true))
+	return applied

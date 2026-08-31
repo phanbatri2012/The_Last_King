@@ -265,6 +265,18 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 		if attack_style == "ranged" and float(attack.get("range", 0.0)) < 250.0:
 			push_error("Ranged enemy range is too short: %s" % enemy_id)
 			return false
+		if attack_style == "ranged":
+			var projectile: Dictionary = attack.get("projectile", {})
+			if float(attack.get("windup", 0.0)) <= 0.0:
+				push_error("Ranged enemy windup must be positive: %s" % enemy_id)
+				return false
+			for projectile_key in ["speed", "radius", "lifetime"]:
+				if float(projectile.get(projectile_key, 0.0)) <= 0.0:
+					push_error("Ranged enemy projectile value must be positive: %s.%s" % [enemy_id, projectile_key])
+					return false
+			if str(projectile.get("visual_kind", "")) not in ["arrow", "magic_orb"]:
+				push_error("Ranged enemy projectile visual is invalid: %s" % enemy_id)
+				return false
 		if str(enemy.get("combat_role", "")).is_empty():
 			push_error("Enemy combat role is missing: %s" % enemy_id)
 			return false
@@ -276,6 +288,12 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 			return false
 		if int(rewards.get("run_gold", 0)) <= 0:
 			push_error("Enemy run Gold reward must be positive: %s" % enemy_id)
+			return false
+		var healing_orb: Dictionary = rewards.get("healing_orb", {})
+		var healing_chance := float(healing_orb.get("chance", -1.0))
+		var healing_fraction := float(healing_orb.get("max_health_fraction", 0.0))
+		if healing_chance < 0.0 or healing_chance > 1.0 or healing_fraction <= 0.0 or healing_fraction > 1.0:
+			push_error("Enemy healing Orb reward is invalid: %s" % enemy_id)
 			return false
 		enemies[enemy_id] = enemy.duplicate(true)
 	return true

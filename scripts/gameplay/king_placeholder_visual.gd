@@ -10,6 +10,8 @@ var _moving := false
 var _step_phase := 0.0
 var _attack_pulse := 0.0
 var _hurt_flash := 0.0
+var _heal_pulse := 0.0
+var _heal_amount := 0.0
 var _defeated := false
 var _health_ratio := 1.0
 var _weapon_kind := "sword"
@@ -23,6 +25,7 @@ func _process(delta: float) -> void:
 		position.y = lerpf(position.y, 0.0, minf(delta * 12.0, 1.0))
 	_attack_pulse = maxf(_attack_pulse - delta * 5.0, 0.0)
 	_hurt_flash = maxf(_hurt_flash - delta * 6.0, 0.0)
+	_heal_pulse = maxf(_heal_pulse - delta * 1.45, 0.0)
 	queue_redraw()
 
 
@@ -54,6 +57,16 @@ func play_attack(direction: Vector2) -> void:
 
 func play_hurt() -> void:
 	_hurt_flash = 1.0
+
+
+func play_heal(amount: float) -> void:
+	_heal_amount = maxf(amount, 0.0)
+	_heal_pulse = 1.0
+	queue_redraw()
+
+
+func is_heal_feedback_active() -> bool:
+	return _heal_pulse > 0.0
 
 
 func set_defeated() -> void:
@@ -106,6 +119,19 @@ func _draw() -> void:
 	draw_colored_polygon(crown_points, Color(0.96, 0.73, 0.18, 1.0))
 	draw_polyline(crown_points, Color(1.0, 0.9, 0.45, 1.0), 2.0, true)
 	draw_arc(Vector2.ZERO, 40.0, 0.0, TAU, 64, Color(0.96, 0.75, 0.24, 0.34), 2.0, true)
+	if _heal_pulse > 0.0 and not _defeated:
+		var heal_progress := 1.0 - _heal_pulse
+		var heal_color := Color(0.28, 1.0, 0.48, _heal_pulse)
+		draw_arc(Vector2.ZERO, 46.0 + heal_progress * 18.0, 0.0, TAU, 48, heal_color, 4.0, true)
+		draw_string(
+			ThemeDB.fallback_font,
+			Vector2(-24.0, -74.0 - heal_progress * 20.0),
+			"+%d" % roundi(_heal_amount),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			48.0,
+			20,
+			heal_color
+		)
 
 	if not _defeated:
 		_draw_health_bar()

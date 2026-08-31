@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scenes/gameplay/movement_arena.gd" id="1_arena"]
 [ext_resource type="Script" path="res://scripts/gameplay/movement_arena_backdrop.gd" id="2_backdrop"]
@@ -6,6 +6,8 @@
 [ext_resource type="Script" path="res://scripts/input/virtual_joystick.gd" id="4_joystick"]
 [ext_resource type="Script" path="res://scripts/battle/enemy_spawn_director.gd" id="5_spawn"]
 [ext_resource type="Script" path="res://scripts/battle/army_controller.gd" id="6_army"]
+[ext_resource type="Script" path="res://scripts/battle/combat_drop_director.gd" id="7_drop"]
+[ext_resource type="Script" path="res://scripts/combat/enemy_projectile_pool.gd" id="8_projectiles"]
 
 [sub_resource type="StyleBoxFlat" id="StyleHudPanel"]
 bg_color = Color(0.025, 0.034, 0.045, 0.92)
@@ -121,6 +123,14 @@ script = ExtResource("2_backdrop")
 [node name="EnemySpawnDirector" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("5_spawn")
+
+[node name="CombatDropDirector" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("7_drop")
+
+[node name="EnemyProjectilePool" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("8_projectiles")
 
 [node name="King" parent="." instance=ExtResource("3_king")]
 unique_name_in_owner = true
