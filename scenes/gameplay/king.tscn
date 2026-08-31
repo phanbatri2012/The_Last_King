@@ -1,0 +1,27 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/king_controller.gd" id="1_controller"]
+[ext_resource type="Script" path="res://scripts/gameplay/king_placeholder_visual.gd" id="2_visual"]
+
+[sub_resource type="CircleShape2D" id="CircleKing"]
+radius = 30.0
+
+[node name="King" type="CharacterBody2D"]
+collision_layer = 1
+collision_mask = 0
+script = ExtResource("1_controller")
+
+[node name="Visual" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_visual")
+
+[node name="CollisionShape" type="CollisionShape2D" parent="."]
+unique_name_in_owner = true
+shape = SubResource("CircleKing")
+
+[node name="FollowCamera" type="Camera2D" parent="."]
+unique_name_in_owner = true
+position_smoothing_enabled = true
+position_smoothing_speed = 7.0
+limit_smoothed = true
+enabled = true

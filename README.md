@@ -2,19 +2,23 @@
 
 Top-down historical-fantasy survivor with army building, roguelite runs, and persistent meta progression.
 
-## Phase 0 status
+## Phase 1 status
 
-This repository contains the technical foundation only:
+This repository contains the technical foundation and the first playable movement slice:
 
 - Godot bootstrap and global service lifecycle;
 - platform adapter boundary;
 - versioned save/profile skeleton;
 - English (US) canonical localization with Vietnamese support;
 - open-ended faction roster data;
+- data-driven Trần Hưng Đạo placeholder King;
+- responsive empty arena with bounded smooth camera;
+- normalized WASD/Arrow Keys and analog pointer/touch joystick movement;
+- in-memory movement session with Continue support;
 - desktop and web export presets;
 - headless smoke tests.
 
-The first gameplay milestone is intentionally not part of Phase 0.
+Combat and the survivor loop intentionally begin in later phases.
 
 ## Toolchain
 
@@ -53,5 +57,5 @@ Generated exports belong in `build/` and are not committed.
 To import, test, smoke-run, export both targets, and validate the Web bundle in one command:
 
 ```powershell
-.\tools\run_phase0.ps1
+.\tools\run_phase1.ps1
 ```

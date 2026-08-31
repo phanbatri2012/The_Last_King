@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "content_version": "phase1.1",
+  "kings": [
+    {
+      "id": "tran_hung_dao",
+      "faction_id": "dai_viet",
+      "name_key": "king.tran_hung_dao.name",
+      "title_key": "king.tran_hung_dao.title",
+      "status": "mvp",
+      "movement": {
+        "speed": 340.0,
+        "collision_radius": 30.0
+      }
+    }
+  ]
+}

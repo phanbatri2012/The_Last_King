@@ -5,7 +5,7 @@
   "menu.title": "THE LAST KING",
   "menu.subtitle": "Sinh tồn. Xây dựng. Chinh phục.",
   "menu.continue": "TIẾP TỤC",
-  "menu.start_battle": "BẮT ĐẦU TRẬN ĐẤU",
+  "menu.start_battle": "BẮT ĐẦU LUYỆN DI CHUYỂN",
   "menu.challenges": "THỬ THÁCH",
   "menu.kings": "THỦ LĨNH",
   "menu.army": "QUÂN ĐỘI",
@@ -32,8 +32,17 @@
   "faction.tupinamba.name": "Tupinambá",
   "faction.united_states_lakota.name": "Lakota Hunkpapa",
   "faction.achaemenid_persia.name": "Ba Tư Achaemenid",
+  "king.tran_hung_dao.name": "Trần Hưng Đạo",
+  "king.tran_hung_dao.title": "Quốc công Tiết chế Đại Việt",
   "phase0.platform": "Bộ điều hợp nền tảng: {platform}",
   "phase0.roster": "Phe phái dự kiến: {count} (không giới hạn)",
   "phase0.status": "Nền tảng Phase 0 đang hoạt động.",
-  "phase0.phase1_not_implemented": "Gameplay chiến đấu sẽ bắt đầu ở Phase 1."
+  "phase0.phase1_not_implemented": "Gameplay chiến đấu sẽ bắt đầu ở Phase 2.",
+  "phase1.menu_status": "Bài luyện di chuyển Phase 1 đã sẵn sàng.",
+  "phase1.arena_title": "LUYỆN DI CHUYỂN · PHASE 1",
+  "phase1.control_hint": "Di chuyển bằng WASD / phím mũi tên hoặc kéo joystick.",
+  "phase1.scope_hint": "Đấu trường trống · Chiến đấu sẽ có ở Phase 2",
+  "phase1.back_to_menu": "VỀ TRIỀU",
+  "phase1.position": "Vị trí  {x}, {y}",
+  "phase1.session_time": "Thời gian luyện tập  {time}s"
 }

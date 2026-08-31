@@ -42,6 +42,35 @@ func end_session(result: Dictionary) -> void:
 	GameEventBus.battle_finished.emit(ended_session_id, result)
 
 
+func advance(delta: float) -> void:
+	if active_session == null:
+		return
+	game_clock.advance(delta)
+	active_session.elapsed_time = game_clock.elapsed_time
+
+
+func set_king_movement_state(position: Vector2, current_velocity: Vector2) -> void:
+	if active_session == null:
+		return
+	active_session.king_state = {
+		"position": {"x": position.x, "y": position.y},
+		"velocity": {"x": current_velocity.x, "y": current_velocity.y},
+	}
+
+
+func get_king_position(fallback: Vector2 = Vector2.ZERO) -> Vector2:
+	if active_session == null:
+		return fallback
+	var position_value: Variant = active_session.king_state.get("position", {})
+	if not position_value is Dictionary:
+		return fallback
+	var position_data: Dictionary = position_value
+	return Vector2(
+		float(position_data.get("x", fallback.x)),
+		float(position_data.get("y", fallback.y))
+	)
+
+
 func _on_pause_state_changed(paused: bool) -> void:
 	game_clock.paused = paused
 	if active_session != null:

@@ -9,13 +9,17 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	print("[TEST] The Last King Phase 0")
+	print("[TEST] The Last King Phase 1")
 	_test_project_configuration()
 	_test_scenes_load()
 	_test_faction_roster()
+	_test_king_catalog()
 	_test_localization_catalogs()
 	_test_platform_adapter()
 	_test_battle_session_serialization()
+	_test_movement_input()
+	_test_movement_arena_layout()
+	await _test_king_scene_movement()
 	_test_pause_manager()
 	_test_default_profile()
 
@@ -32,18 +36,26 @@ func _run() -> void:
 
 func _test_project_configuration() -> void:
 	_expect(ProjectSettings.get_setting("application/config/name") == "The Last King", "Project name is canonical.")
+	_expect(ProjectSettings.get_setting("application/config/version") == "0.1.0", "Game version is independent and explicit.")
 	var project_file := _read_text("res://project.godot")
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
 	_expect(FileAccess.file_exists("res://export_presets.cfg"), "Export presets exist.")
 	_expect(FileAccess.file_exists("res://AGENTS.md"), "Project rules exist.")
+	for action_name in ["move_left", "move_right", "move_up", "move_down"]:
+		_expect(InputMap.has_action(action_name), "Movement input action exists: %s" % action_name)
+		_expect(not InputMap.action_get_events(action_name).is_empty(), "Movement input action has bindings: %s" % action_name)
 
 
 func _test_scenes_load() -> void:
 	var bootstrap := load("res://scenes/bootstrap/bootstrap.tscn")
 	var main_menu := load("res://scenes/menus/main_menu.tscn")
+	var king := load("res://scenes/gameplay/king.tscn")
+	var movement_arena := load("res://scenes/gameplay/movement_arena.tscn")
 	_expect(bootstrap is PackedScene, "Bootstrap scene loads.")
 	_expect(main_menu is PackedScene, "Main menu scene loads.")
+	_expect(king is PackedScene, "King scene loads.")
+	_expect(movement_arena is PackedScene, "Movement arena scene loads.")
 
 
 func _test_faction_roster() -> void:
@@ -74,6 +86,28 @@ func _test_faction_roster() -> void:
 	_expect(seen_ids.has("dai_viet"), "Dai Viet is retained as the MVP faction.")
 	_expect(seen_ids.has("united_states_lakota"), "The United States-associated faction is retained.")
 	_expect(seen_ids.has("achaemenid_persia"), "Persia is retained as a separate faction.")
+
+
+func _test_king_catalog() -> void:
+	var catalog := _load_json("res://data/kings/kings.json")
+	var english := _load_json("res://localization/en-US/common.json")
+	var vietnamese := _load_json("res://localization/vi-VN/common.json")
+	_expect(int(catalog.get("schema_version", 0)) == 1, "King catalog schema is versioned.")
+	_expect(not str(catalog.get("content_version", "")).is_empty(), "King catalog has an independent content version.")
+	var kings: Array = catalog.get("kings", [])
+	_expect(kings.size() == 1, "Phase 1 implements one MVP King.")
+	if kings.is_empty() or not kings[0] is Dictionary:
+		return
+	var king: Dictionary = kings[0]
+	_expect(king.get("id") == "tran_hung_dao", "Trần Hưng Đạo is the Phase 1 King.")
+	_expect(king.get("faction_id") == "dai_viet", "The Phase 1 King belongs to Dai Viet.")
+	_expect(english.has(str(king.get("name_key", ""))), "King name is localized in English.")
+	_expect(vietnamese.has(str(king.get("name_key", ""))), "King name is localized in Vietnamese.")
+	_expect(english.has(str(king.get("title_key", ""))), "King title is localized in English.")
+	_expect(vietnamese.has(str(king.get("title_key", ""))), "King title is localized in Vietnamese.")
+	var movement: Dictionary = king.get("movement", {})
+	_expect(float(movement.get("speed", 0.0)) > 0.0, "King movement speed is positive.")
+	_expect(float(movement.get("collision_radius", 0.0)) > 0.0, "King collision radius is positive.")
 
 
 func _test_localization_catalogs() -> void:
@@ -116,6 +150,91 @@ func _test_battle_session_serialization() -> void:
 	_expect(snapshot.get("king_id") == "tran_hung_dao", "Battle session keeps the King ID.")
 	_expect(snapshot.get("faction_id") == "dai_viet", "Battle session keeps the faction ID.")
 	_expect(snapshot.get("run_gold") == 0, "Battle session uses temporary run_gold.")
+	_expect(snapshot.get("king_state") is Dictionary, "Battle session snapshots the King movement state.")
+
+
+func _test_movement_input() -> void:
+	var diagonal := MovementInputResolver.resolve(Vector2.ONE, Vector2.ZERO)
+	_expect(is_equal_approx(diagonal.length(), 1.0), "Keyboard diagonal input is normalized.")
+	_expect(diagonal.is_equal_approx(Vector2.ONE.normalized()), "Keyboard direction is preserved after normalization.")
+	var analog := Vector2(0.35, -0.2)
+	_expect(MovementInputResolver.resolve(Vector2.LEFT, analog).is_equal_approx(analog), "Active joystick input takes priority over keyboard input.")
+	var velocity := MovementInputResolver.to_velocity(Vector2.ONE, 340.0)
+	_expect(is_equal_approx(velocity.length(), 340.0), "Movement speed is direction-independent.")
+	_expect(MovementInputResolver.to_velocity(Vector2.RIGHT, -1.0).is_zero_approx(), "Negative movement speed is rejected.")
+
+	_expect(
+		MovementJoystick.direction_from_offset(Vector2(4.0, 0.0), 72.0, 0.12).is_zero_approx(),
+		"Joystick deadzone suppresses tiny pointer movement."
+	)
+	var full_right := MovementJoystick.direction_from_offset(Vector2(72.0, 0.0), 72.0, 0.12)
+	_expect(full_right.is_equal_approx(Vector2.RIGHT), "Joystick reaches full cardinal input at its radius.")
+	var clamped := MovementJoystick.direction_from_offset(Vector2(500.0, 0.0), 72.0, 0.12)
+	_expect(clamped.is_equal_approx(Vector2.RIGHT), "Joystick input is clamped outside its radius.")
+	var partial := MovementJoystick.direction_from_offset(Vector2(36.0, 0.0), 72.0, 0.12)
+	_expect(partial.x > 0.0 and partial.x < 1.0, "Joystick preserves analog strength.")
+
+
+func _test_movement_arena_layout() -> void:
+	var packed_arena := load("res://scenes/gameplay/movement_arena.tscn") as PackedScene
+	if packed_arena == null:
+		_expect(false, "Movement arena layout fixture loads.")
+		return
+	var arena := packed_arena.instantiate()
+	var joystick_control := arena.get_node("HudLayer/Hud/VirtualJoystick") as Control
+	_expect(joystick_control != null, "Movement arena contains the virtual joystick.")
+	if joystick_control != null:
+		_expect(is_zero_approx(joystick_control.anchor_left), "Joystick is anchored to the left edge.")
+		_expect(is_zero_approx(joystick_control.anchor_right), "Joystick does not anchor outside the right edge.")
+		_expect(is_equal_approx(joystick_control.anchor_top, 1.0), "Joystick is anchored to the bottom edge.")
+		_expect(joystick_control.offset_left >= 0.0, "Joystick has a visible left safe margin.")
+		_expect(joystick_control.offset_top < joystick_control.offset_bottom, "Joystick control has positive height.")
+	var back_button := arena.get_node("HudLayer/Hud/TopMargin/TopPanel/TopRow/BackButton") as Button
+	_expect(back_button != null and back_button.custom_minimum_size.y >= 48.0, "Back button meets the touch target baseline.")
+	arena.free()
+
+
+func _test_king_scene_movement() -> void:
+	var packed_king := load("res://scenes/gameplay/king.tscn") as PackedScene
+	if packed_king == null:
+		_expect(false, "King movement integration fixture loads.")
+		return
+	var king := packed_king.instantiate() as KingController
+	root.add_child(king)
+	await process_frame
+	king.follow_camera.enabled = false
+	king.set_movement_bounds(Rect2(-100.0, -100.0, 200.0, 200.0))
+	king.global_position = Vector2.ZERO
+	king.set_virtual_direction(Vector2.ZERO)
+	Input.action_press("move_right")
+	for _frame in 4:
+		await physics_frame
+	Input.action_release("move_right")
+	_expect(king.global_position.x > 0.0, "Configured keyboard input moves the King.")
+	_expect(absf(king.global_position.y) < 0.01, "Keyboard horizontal movement does not drift vertically.")
+
+	king.set_keyboard_enabled(false)
+	king.global_position = Vector2.ZERO
+	king.set_virtual_direction(Vector2.RIGHT)
+	for _frame in 4:
+		await physics_frame
+	_expect(king.global_position.x > 0.0, "Virtual joystick input moves the King horizontally.")
+	_expect(absf(king.global_position.y) < 0.01, "Horizontal movement does not drift vertically.")
+
+	var x_after_horizontal := king.global_position.x
+	king.set_virtual_direction(Vector2.DOWN)
+	for _frame in 4:
+		await physics_frame
+	_expect(king.global_position.y > 0.0, "Virtual joystick input moves the King vertically.")
+	_expect(is_equal_approx(king.global_position.x, x_after_horizontal), "Vertical movement does not drift horizontally.")
+
+	king.global_position = Vector2(99.0, 0.0)
+	king.set_virtual_direction(Vector2.RIGHT)
+	await physics_frame
+	_expect(king.global_position.x <= 70.01, "King collision radius remains inside the arena boundary.")
+	king.set_virtual_direction(Vector2.ZERO)
+	king.queue_free()
+	await process_frame
 
 
 func _test_pause_manager() -> void:

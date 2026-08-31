@@ -17,7 +17,8 @@ extends Control
 
 func _ready() -> void:
 	LocalizationService.locale_changed.connect(_on_locale_changed)
-	start_button.pressed.connect(_on_phase_one_button_pressed)
+	continue_button.pressed.connect(_on_continue_button_pressed)
+	start_button.pressed.connect(_on_start_button_pressed)
 	_setup_language_picker()
 	_refresh_text()
 
@@ -55,7 +56,7 @@ func _refresh_text() -> void:
 		"phase0.roster",
 		{"count": ContentDatabase.factions.size()}
 	)
-	status_label.text = LocalizationService.translate_key("phase0.status")
+	status_label.text = LocalizationService.translate_key("phase1.menu_status")
 
 
 func _on_language_selected(index: int) -> void:
@@ -66,5 +67,19 @@ func _on_locale_changed(_locale: String) -> void:
 	_refresh_text()
 
 
-func _on_phase_one_button_pressed() -> void:
-	status_label.text = LocalizationService.translate_key("phase0.phase1_not_implemented")
+func _on_start_button_pressed() -> void:
+	var session_seed := int(Time.get_ticks_usec() & 0x7fffffff)
+	GameSessionService.start_session(&"tran_hung_dao", &"dai_viet", session_seed)
+	_open_movement_drill()
+
+
+func _on_continue_button_pressed() -> void:
+	if not GameSessionService.has_active_session():
+		return
+	_open_movement_drill()
+
+
+func _open_movement_drill() -> void:
+	var error := SceneService.change_scene_to_file("res://scenes/gameplay/movement_arena.tscn")
+	if error != OK:
+		status_label.text = LocalizationService.translate_key("bootstrap.failed")

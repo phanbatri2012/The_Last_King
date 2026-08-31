@@ -24,6 +24,10 @@ var enemy_wave_state: Dictionary = {}
 var boss_state: Dictionary = {}
 var rng_state: Dictionary = {}
 var pause_state: Dictionary = {}
+var king_state: Dictionary = {
+	"position": {"x": 0.0, "y": 0.0},
+	"velocity": {"x": 0.0, "y": 0.0},
+}
 
 
 func create(new_king_id: StringName, new_faction_id: StringName, new_seed: int) -> void:
@@ -55,4 +59,5 @@ func to_dict() -> Dictionary:
 		"boss_state": boss_state.duplicate(true),
 		"rng_state": rng_state.duplicate(true),
 		"pause_state": pause_state.duplicate(true),
+		"king_state": king_state.duplicate(true),
 	}

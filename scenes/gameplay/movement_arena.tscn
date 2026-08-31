@@ -1,0 +1,200 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scenes/gameplay/movement_arena.gd" id="1_arena"]
+[ext_resource type="Script" path="res://scripts/gameplay/movement_arena_backdrop.gd" id="2_backdrop"]
+[ext_resource type="PackedScene" path="res://scenes/gameplay/king.tscn" id="3_king"]
+[ext_resource type="Script" path="res://scripts/input/virtual_joystick.gd" id="4_joystick"]
+
+[sub_resource type="StyleBoxFlat" id="StyleHudPanel"]
+bg_color = Color(0.025, 0.034, 0.045, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.5, 0.36, 0.12, 0.9)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 22.0
+content_margin_top = 14.0
+content_margin_right = 22.0
+content_margin_bottom = 14.0
+
+[sub_resource type="StyleBoxFlat" id="StyleHintPanel"]
+bg_color = Color(0.025, 0.034, 0.045, 0.82)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.35, 0.29, 0.16, 0.9)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 26.0
+content_margin_top = 12.0
+content_margin_right = 26.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBackButton"]
+bg_color = Color(0.16, 0.095, 0.075, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.7, 0.49, 0.16, 1)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+
+[node name="MovementArena" type="Node2D"]
+script = ExtResource("1_arena")
+
+[node name="Backdrop" type="Node2D" parent="."]
+unique_name_in_owner = true
+z_index = -10
+script = ExtResource("2_backdrop")
+
+[node name="King" parent="." instance=ExtResource("3_king")]
+unique_name_in_owner = true
+
+[node name="HudLayer" type="CanvasLayer" parent="."]
+
+[node name="Hud" type="Control" parent="HudLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="TopMargin" type="MarginContainer" parent="HudLayer/Hud"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 26.0
+offset_top = 22.0
+offset_right = -26.0
+offset_bottom = 142.0
+grow_horizontal = 2
+
+[node name="TopPanel" type="PanelContainer" parent="HudLayer/Hud/TopMargin"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleHudPanel")
+
+[node name="TopRow" type="HBoxContainer" parent="HudLayer/Hud/TopMargin/TopPanel"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Identity" type="VBoxContainer" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow"]
+layout_mode = 2
+theme_override_constants/separation = 1
+
+[node name="ArenaTitleLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Identity"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.75, 0.27, 1)
+theme_override_font_sizes/font_size = 24
+text = "phase1.arena_title"
+
+[node name="KingNameLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Identity"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.95, 0.98, 1)
+theme_override_font_sizes/font_size = 20
+text = "king.tran_hung_dao.name"
+
+[node name="KingTitleLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Identity"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.61, 0.67, 0.72, 1)
+theme_override_font_sizes/font_size = 14
+text = "king.tran_hung_dao.title"
+
+[node name="TopSpacer" type="Control" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Telemetry" type="VBoxContainer" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="PositionLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.81, 0.85, 1)
+text = "phase1.position"
+horizontal_alignment = 2
+
+[node name="TimeLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.63, 0.69, 1)
+text = "phase1.session_time"
+horizontal_alignment = 2
+
+[node name="BackButton" type="Button" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBackButton")
+text = "phase1.back_to_menu"
+
+[node name="VirtualJoystick" type="Control" parent="HudLayer/Hud"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 0.0
+anchor_bottom = 1.0
+offset_left = 26.0
+offset_top = -206.0
+offset_right = 206.0
+offset_bottom = -26.0
+grow_vertical = 0
+mouse_default_cursor_shape = 6
+script = ExtResource("4_joystick")
+
+[node name="HintMargin" type="MarginContainer" parent="HudLayer/Hud"]
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -350.0
+offset_top = -112.0
+offset_right = 350.0
+offset_bottom = -28.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="HintPanel" type="PanelContainer" parent="HudLayer/Hud/HintMargin"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleHintPanel")
+
+[node name="Hints" type="VBoxContainer" parent="HudLayer/Hud/HintMargin/HintPanel"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ControlHintLabel" type="Label" parent="HudLayer/Hud/HintMargin/HintPanel/Hints"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.91, 0.94, 1)
+theme_override_font_sizes/font_size = 17
+text = "phase1.control_hint"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ScopeHintLabel" type="Label" parent="HudLayer/Hud/HintMargin/HintPanel/Hints"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.59, 0.44, 1)
+theme_override_font_sizes/font_size = 14
+text = "phase1.scope_hint"
+horizontal_alignment = 1

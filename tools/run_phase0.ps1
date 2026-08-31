@@ -21,7 +21,7 @@ if (-not (Test-Path -LiteralPath $webTemplate)) {
 if ($LASTEXITCODE -ne 0) { throw "Godot project import failed." }
 
 & $resolvedGodot --headless --path $projectRoot --script res://tests/run_tests.gd
-if ($LASTEXITCODE -ne 0) { throw "Phase 0 tests failed." }
+if ($LASTEXITCODE -ne 0) { throw "Automated tests failed." }
 
 & $resolvedGodot --headless --path $projectRoot --quit-after 120
 if ($LASTEXITCODE -ne 0) { throw "Bootstrap runtime smoke test failed." }
@@ -29,8 +29,12 @@ if ($LASTEXITCODE -ne 0) { throw "Bootstrap runtime smoke test failed." }
 New-Item -ItemType Directory -Force -Path (Join-Path $projectRoot "build/windows") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $projectRoot "build/web") | Out-Null
 
-& $resolvedGodot --headless --path $projectRoot --export-release "Windows Desktop" (Join-Path $projectRoot "build/windows/the-last-king.exe")
+$windowsBuild = Join-Path $projectRoot "build/windows/the-last-king.exe"
+& $resolvedGodot --headless --path $projectRoot --export-release "Windows Desktop" $windowsBuild
 if ($LASTEXITCODE -ne 0) { throw "Windows export failed." }
+
+$windowsSmoke = Start-Process -FilePath $windowsBuild -ArgumentList @("--headless", "--quit-after", "120") -PassThru -Wait -WindowStyle Hidden
+if ($windowsSmoke.ExitCode -ne 0) { throw "Exported Windows runtime smoke test failed." }
 
 & $resolvedGodot --headless --path $projectRoot --export-release "Web" (Join-Path $projectRoot "build/web/index.html")
 if ($LASTEXITCODE -ne 0) { throw "Web export failed." }
@@ -38,4 +42,4 @@ if ($LASTEXITCODE -ne 0) { throw "Web export failed." }
 & (Join-Path $PSScriptRoot "check_web_bundle.ps1") -BundlePath (Join-Path $projectRoot "build/web")
 if ($LASTEXITCODE -ne 0) { throw "Web bundle validation failed." }
 
-Write-Host "Phase 0 verification passed."
+Write-Host "Project verification passed."

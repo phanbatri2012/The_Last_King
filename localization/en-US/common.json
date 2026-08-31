@@ -5,7 +5,7 @@
   "menu.title": "THE LAST KING",
   "menu.subtitle": "Survive. Build. Conquer.",
   "menu.continue": "CONTINUE",
-  "menu.start_battle": "START BATTLE",
+  "menu.start_battle": "START MOVEMENT DRILL",
   "menu.challenges": "CHALLENGES",
   "menu.kings": "LEADERS",
   "menu.army": "ARMY",
@@ -32,8 +32,17 @@
   "faction.tupinamba.name": "Tupinamba",
   "faction.united_states_lakota.name": "Hunkpapa Lakota",
   "faction.achaemenid_persia.name": "Achaemenid Persia",
+  "king.tran_hung_dao.name": "Trần Hưng Đạo",
+  "king.tran_hung_dao.title": "Supreme Commander of Dai Viet",
   "phase0.platform": "Platform adapter: {platform}",
   "phase0.roster": "Planned factions: {count} (open roster)",
   "phase0.status": "Phase 0 foundation is running.",
-  "phase0.phase1_not_implemented": "Battle gameplay begins in Phase 1."
+  "phase0.phase1_not_implemented": "Battle gameplay begins in Phase 2.",
+  "phase1.menu_status": "Phase 1 movement drill is ready.",
+  "phase1.arena_title": "MOVEMENT DRILL · PHASE 1",
+  "phase1.control_hint": "Move with WASD / Arrow Keys or drag the joystick.",
+  "phase1.scope_hint": "Empty arena · Combat arrives in Phase 2",
+  "phase1.back_to_menu": "BACK TO COURT",
+  "phase1.position": "Position  {x}, {y}",
+  "phase1.session_time": "Drill time  {time}s"
 }
