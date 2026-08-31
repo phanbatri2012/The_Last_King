@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "roster_policy": "open_ended",
+  "factions": [
+    {"id": "dai_viet", "country_code": "VN", "leader_id": "tran_hung_dao", "era": "tran_dynasty_13th_century", "name_key": "faction.dai_viet.name", "status": "mvp"},
+    {"id": "qin_empire", "country_code": "CN", "leader_id": "qin_shi_huang", "era": "qin_dynasty_3rd_century_bce", "name_key": "faction.qin_empire.name", "status": "planned"},
+    {"id": "tokugawa_japan", "country_code": "JP", "leader_id": "tokugawa_ieyasu", "era": "sengoku_edo_transition", "name_key": "faction.tokugawa_japan.name", "status": "planned"},
+    {"id": "joseon", "country_code": "KR", "leader_id": "sejong", "era": "joseon_15th_century", "name_key": "faction.joseon.name", "status": "planned"},
+    {"id": "mauryan_empire", "country_code": "IN", "leader_id": "ashoka", "era": "mauryan_3rd_century_bce", "name_key": "faction.mauryan_empire.name", "status": "planned"},
+    {"id": "ayutthaya", "country_code": "TH", "leader_id": "naresuan", "era": "ayutthaya_16th_century", "name_key": "faction.ayutthaya.name", "status": "planned"},
+    {"id": "mongol_empire", "country_code": "MN", "leader_id": "genghis_khan", "era": "mongol_13th_century", "name_key": "faction.mongol_empire.name", "status": "planned"},
+    {"id": "lionheart_england", "country_code": "GB", "leader_id": "richard_i", "era": "england_12th_century", "name_key": "faction.lionheart_england.name", "status": "planned"},
+    {"id": "frankish_empire", "country_code": "FR", "leader_id": "charlemagne", "era": "carolingian_8th_9th_century", "name_key": "faction.frankish_empire.name", "status": "planned"},
+    {"id": "ottonian_realm", "country_code": "DE", "leader_id": "otto_i", "era": "ottonian_10th_century", "name_key": "faction.ottonian_realm.name", "status": "planned"},
+    {"id": "ostrogothic_italy", "country_code": "IT", "leader_id": "theodoric_the_great", "era": "ostrogothic_5th_6th_century", "name_key": "faction.ostrogothic_italy.name", "status": "planned"},
+    {"id": "medieval_iberia", "country_code": "ES", "leader_id": "el_cid", "era": "iberia_11th_century", "name_key": "faction.medieval_iberia.name", "status": "planned"},
+    {"id": "medieval_rus", "country_code": "RU", "leader_id": "alexander_nevsky", "era": "rus_13th_century", "name_key": "faction.medieval_rus.name", "status": "planned"},
+    {"id": "sparta", "country_code": "GR", "leader_id": "leonidas_i", "era": "sparta_5th_century_bce", "name_key": "faction.sparta.name", "status": "planned"},
+    {"id": "ottoman_empire", "country_code": "TR", "leader_id": "mehmed_ii", "era": "ottoman_15th_century", "name_key": "faction.ottoman_empire.name", "status": "planned"},
+    {"id": "new_kingdom_egypt", "country_code": "EG", "leader_id": "ramesses_ii", "era": "new_kingdom_13th_century_bce", "name_key": "faction.new_kingdom_egypt.name", "status": "planned"},
+    {"id": "norse_hardrada", "country_code": "NO", "leader_id": "harald_hardrada", "era": "norse_11th_century", "name_key": "faction.norse_hardrada.name", "status": "planned"},
+    {"id": "mexica_empire", "country_code": "MX", "leader_id": "moctezuma_ii", "era": "mexica_15th_16th_century", "name_key": "faction.mexica_empire.name", "status": "planned"},
+    {"id": "tupinamba", "country_code": "BR", "leader_id": "cunhambebe", "era": "tupinamba_16th_century", "name_key": "faction.tupinamba.name", "status": "planned"},
+    {
+      "id": "united_states_lakota",
+      "country_code": "US",
+      "leader_id": "sitting_bull",
+      "era": "hunkpapa_lakota_19th_century",
+      "name_key": "faction.united_states_lakota.name",
+      "status": "planned_cultural_review",
+      "representation_note": "An Indigenous North American historical faction associated with land now within the United States; it must not be presented as an ancient United States army."
+    },
+    {"id": "achaemenid_persia", "country_code": "IR", "leader_id": "cyrus_the_great", "era": "achaemenid_6th_century_bce", "name_key": "faction.achaemenid_persia.name", "status": "planned"}
+  ]
+}

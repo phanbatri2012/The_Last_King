@@ -1,0 +1,66 @@
+; Engine configuration file.
+; Prefer editing through the Godot editor when practical.
+
+config_version=5
+
+[application]
+
+config/name="The Last King"
+config/description="Top-down historical-fantasy survivor with army building and roguelite progression."
+run/main_scene="res://scenes/bootstrap/bootstrap.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[autoload]
+
+GameEventBus="*res://scripts/core/game_event_bus.gd"
+PlatformService="*res://scripts/platform/platform_service.gd"
+LocalizationService="*res://scripts/localization/localization_service.gd"
+ContentDatabase="*res://scripts/core/content_database.gd"
+SaveService="*res://scripts/save/save_service.gd"
+PlayerProfileService="*res://scripts/progression/player_profile_service.gd"
+LeaderboardService="*res://scripts/leaderboard/leaderboard_service.gd"
+AudioService="*res://scripts/core/audio_service.gd"
+GameSessionService="*res://scripts/battle/game_session_service.gd"
+SceneService="*res://scripts/core/scene_service.gd"
+GameServices="*res://scripts/core/game_services.gd"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+
+[input]
+
+move_left={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":65), Object(InputEventKey,"physical_keycode":4194311)]
+}
+move_right={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":68), Object(InputEventKey,"physical_keycode":4194313)]
+}
+move_up={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":87), Object(InputEventKey,"physical_keycode":4194320)]
+}
+move_down={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":83), Object(InputEventKey,"physical_keycode":4194322)]
+}
+crown_power={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":32)]
+}
+pause_game={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194305)]
+}
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.025, 0.031, 0.045, 1)

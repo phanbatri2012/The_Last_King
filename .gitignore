@@ -1,0 +1,20 @@
+# Godot generated files
+.godot/
+
+# Local toolchain and export artifacts
+.tools/
+build/*
+!build/.gdignore
+dist/
+tools/export_templates/*.zip
+
+# Logs and local-only files
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.idea/
+.vscode/

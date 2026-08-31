@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The Last King faction roster",
+  "type": "object",
+  "required": ["schema_version", "roster_policy", "factions"],
+  "properties": {
+    "schema_version": {"type": "integer", "minimum": 1},
+    "roster_policy": {"const": "open_ended"},
+    "factions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "country_code", "leader_id", "era", "name_key", "status"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
+          "country_code": {"type": "string", "pattern": "^[A-Z]{2}$"},
+          "leader_id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
+          "era": {"type": "string", "minLength": 1},
+          "name_key": {"type": "string", "minLength": 1},
+          "status": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}
