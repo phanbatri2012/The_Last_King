@@ -4,7 +4,7 @@ Top-down historical-fantasy survivor with army building, roguelite runs, and per
 
 Rise as a legendary ruler, survive enemy hordes, command ancient armies, collect gold, unlock skills, summon iconic warriors, and defeat colossal bosses.
 
-## Phase 4B survival and dodge status
+## Phase 4C Dai Viet roster status
 
 This repository contains the technical foundation and the first playable combat slice:
 
@@ -27,19 +27,21 @@ This repository contains the technical foundation and the first playable combat 
 - one shared damage resolver for King and enemy damage;
 - bright run Gold drops, collection through one reward service, and a yellow HUD counter;
 - centralized run Gold spending with no mixing into persistent account Gold;
-- data-driven Đại Việt Spearman summoning for 15 run Gold and 2 Army Capacity;
-- a visible touch/keyboard summon control and a 20-point King Army Capacity;
+- seven data-driven Đại Việt units: Spearman, Crossbowman, Royal Guard, Ambush Archer, Raider, Elephant Guard, and Royal War Elephant;
+- distinct health, defense, speed, damage, reach, attack rate, summon cost, capacity cost, formation role, and placeholder silhouette for every unit;
+- real pooled allied arrows and crossbow bolts with travel time and collision;
+- a two-column touch/click roster plus PC/Web number-key hotkeys `1–7` (`Q` remains the Spearman shortcut) and a 20-point King Army Capacity;
 - allied health, armor, formation following, automatic targeting, attacks, death events, and blue health bars;
 - Goblin retaliation against allied attackers and Continue snapshots for the living army;
-- real pooled Goblin arrows and magic Orbs with visible windups, travel time, collision, and dodge windows;
-- rare seeded green Healing Orb drops that restore a data-driven percentage of King maximum HP;
+- real pooled Goblin arrows and magic Orbs with local charge indicators, no dashed aiming path, travel time, collision, and dodge windows;
+- rare seeded green Healing Orb drops that restore a data-driven percentage of King maximum HP, then heal wounded soldiers when the King is full;
 - mouse-hold and touch-hold movement across the battlefield alongside WASD and the virtual joystick;
 - Continue snapshots for uncollected Healing Orbs and deterministic healing-drop RNG;
 - localized combat HUD, defeat/retry flow, desktop Exit Game button, and in-memory Continue state;
 - desktop and web export presets;
 - headless smoke tests.
 
-XP, Run Level, level-up cards, Crossbowmen, and advanced formations remain later slices.
+XP, Run Level, level-up cards, unit upgrades, and polished historical art remain later slices.
 
 ## Toolchain
 

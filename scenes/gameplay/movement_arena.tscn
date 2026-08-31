@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scenes/gameplay/movement_arena.gd" id="1_arena"]
 [ext_resource type="Script" path="res://scripts/gameplay/movement_arena_backdrop.gd" id="2_backdrop"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://scripts/battle/army_controller.gd" id="6_army"]
 [ext_resource type="Script" path="res://scripts/battle/combat_drop_director.gd" id="7_drop"]
 [ext_resource type="Script" path="res://scripts/combat/enemy_projectile_pool.gd" id="8_projectiles"]
+[ext_resource type="Script" path="res://scripts/combat/ally_projectile_pool.gd" id="9_ally_projectiles"]
 
 [sub_resource type="StyleBoxFlat" id="StyleHudPanel"]
 bg_color = Color(0.025, 0.034, 0.045, 0.92)
@@ -131,6 +132,10 @@ script = ExtResource("7_drop")
 [node name="EnemyProjectilePool" type="Node2D" parent="."]
 unique_name_in_owner = true
 script = ExtResource("8_projectiles")
+
+[node name="AllyProjectilePool" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("9_ally_projectiles")
 
 [node name="King" parent="." instance=ExtResource("3_king")]
 unique_name_in_owner = true
@@ -278,8 +283,8 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -286.0
-offset_top = -190.0
+offset_left = -470.0
+offset_top = -410.0
 offset_right = -26.0
 offset_bottom = -26.0
 grow_horizontal = 0
@@ -301,13 +306,29 @@ theme_override_font_sizes/font_size = 16
 text = "phase4.army_capacity"
 horizontal_alignment = 1
 
-[node name="SummonButton" type="Button" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent"]
+[node name="SummonRosterLabel" type="Label" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(220, 72)
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.91, 0.69, 0.2, 1)
+theme_override_font_sizes/font_size = 14
+text = "phase4.summon_roster"
+horizontal_alignment = 1
+
+[node name="SummonGrid" type="GridContainer" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 2
+
+[node name="SummonButtonTemplate" type="Button" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/SummonGrid"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(190, 66)
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
 theme_override_styles/normal = SubResource("StyleSummonButton")
-text = "phase4.summon_spearman"
+text = "phase4.summon_unit"
 
 [node name="HintMargin" type="MarginContainer" parent="HudLayer/Hud"]
 layout_mode = 1

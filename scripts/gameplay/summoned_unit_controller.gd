@@ -22,8 +22,14 @@ var leash_range := 330.0
 var attacks_per_second := 1.05
 var target_refresh_interval := 0.16
 var damage_type := "physical"
+var attack_style := "melee"
+var projectile_speed := 600.0
+var projectile_radius := 4.0
+var projectile_lifetime := 1.0
+var projectile_visual_kind := "arrow"
 
 var _king: KingController
+var _projectile_pool: AllyProjectilePool
 var _formation_offset := Vector2.ZERO
 var _current_target: GoblinController
 var _cooldown_remaining := 0.0
@@ -74,12 +80,14 @@ func configure(
 	config: Dictionary,
 	new_instance_id: String,
 	host_king: KingController,
-	restored_health: float = -1.0
+	restored_health: float = -1.0,
+	projectile_pool: AllyProjectilePool = null
 ) -> void:
 	unit_id = StringName(str(config.get("id", unit_id)))
 	instance_id = new_instance_id
 	name_key = str(config.get("name_key", name_key))
 	_king = host_king
+	_projectile_pool = projectile_pool
 	var health_data: Dictionary = config.get("health", {})
 	var defense_data: Dictionary = config.get("defense", {})
 	var movement_data: Dictionary = config.get("movement", {})
@@ -97,6 +105,12 @@ func configure(
 	attacks_per_second = maxf(float(attack_data.get("attacks_per_second", attacks_per_second)), 0.01)
 	target_refresh_interval = maxf(float(attack_data.get("target_refresh", target_refresh_interval)), 0.01)
 	damage_type = str(attack_data.get("damage_type", damage_type))
+	attack_style = str(attack_data.get("attack_style", attack_style))
+	var projectile_data: Dictionary = attack_data.get("projectile", {})
+	projectile_speed = maxf(float(projectile_data.get("speed", projectile_speed)), 1.0)
+	projectile_radius = maxf(float(projectile_data.get("radius", projectile_radius)), 1.0)
+	projectile_lifetime = maxf(float(projectile_data.get("lifetime", projectile_lifetime)), 0.05)
+	projectile_visual_kind = str(projectile_data.get("visual_kind", projectile_visual_kind))
 	capacity_cost = maxi(int(summon_data.get("capacity_cost", capacity_cost)), 1)
 	visual.configure(presentation_data)
 	_apply_collision_radius()
@@ -109,6 +123,10 @@ func set_formation_offset(new_offset: Vector2) -> void:
 
 func get_formation_world_position() -> Vector2:
 	return _king.global_position + _formation_offset if is_instance_valid(_king) else global_position
+
+
+func get_host_king() -> KingController:
+	return _king
 
 
 func set_combat_enabled(enabled: bool) -> void:
@@ -168,21 +186,36 @@ func _try_attack(direction: Vector2) -> void:
 		return
 	_cooldown_remaining = 1.0 / attacks_per_second
 	visual.play_attack(direction)
+	var attack_context := {
+		"source_kind": "unit",
+		"source_team": "player",
+		"source_id": str(unit_id),
+		"source_instance_id": instance_id,
+		"source_node": self,
+		"target_kind": "enemy",
+		"target_id": str(_current_target.enemy_id),
+		"target_instance_id": _current_target.instance_id,
+		"damage_type": damage_type,
+		"attack_style": attack_style,
+	}
+	if attack_style == "ranged" and is_instance_valid(_projectile_pool):
+		_projectile_pool.request_projectile({
+			"projectile_id": "%s_shot" % instance_id,
+			"position": global_position + direction * (collision_radius + 8.0),
+			"direction": direction,
+			"speed": projectile_speed,
+			"radius": projectile_radius,
+			"lifetime": projectile_lifetime,
+			"visual_kind": projectile_visual_kind,
+			"damage": attack_damage,
+			"damage_type": damage_type,
+			"context": attack_context,
+		})
+		return
 	DamageResolver.apply_damage(
 		_current_target.health,
 		attack_damage,
-		{
-			"source_kind": "unit",
-			"source_team": "player",
-			"source_id": str(unit_id),
-			"source_instance_id": instance_id,
-			"source_node": self,
-			"target_kind": "enemy",
-			"target_id": str(_current_target.enemy_id),
-			"target_instance_id": _current_target.instance_id,
-			"damage_type": damage_type,
-			"attack_style": "melee",
-		},
+		attack_context,
 		_current_target.defense
 	)
 
@@ -207,6 +240,8 @@ func _on_health_changed(current: float, maximum: float, delta: float, _context: 
 	visual.set_health(current, maximum)
 	if delta < 0.0:
 		visual.play_hurt()
+	elif delta > 0.0:
+		visual.play_heal(delta)
 
 
 func _on_died(context: Dictionary) -> void:

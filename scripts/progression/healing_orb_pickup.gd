@@ -45,19 +45,27 @@ func _draw() -> void:
 
 
 func _on_body_entered(body: Node2D) -> void:
-	if _collected or not body is KingController:
+	if _collected or not (body is KingController or body is SummonedUnitController):
 		return
-	var collecting_king := body as KingController
-	if not collecting_king.is_combat_alive():
+	if not body.has_method("is_combat_alive") or not bool(body.call("is_combat_alive")):
 		return
-	var requested_healing := collecting_king.health.max_health * max_health_fraction
+	if body is SummonedUnitController:
+		var allied_unit := body as SummonedUnitController
+		var host_king := allied_unit.get_host_king()
+		if not is_instance_valid(host_king) or host_king.health.current_health < host_king.health.max_health:
+			return
+	var target_health := body.get("health") as HealthComponent
+	if target_health == null:
+		return
+	var requested_healing := target_health.max_health * max_health_fraction
 	var result := HealingResolver.apply_healing(
-		collecting_king.health,
+		target_health,
 		requested_healing,
 		{
 			"source_kind": "pickup",
 			"source_id": pickup_id,
 			"recovery_kind": "healing_orb",
+			"target_kind": "unit" if body is SummonedUnitController else "king",
 		}
 	)
 	if not bool(result.get("accepted", false)):

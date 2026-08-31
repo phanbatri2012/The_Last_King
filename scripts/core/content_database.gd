@@ -300,6 +300,7 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 
 
 func _index_units(records: Array, id_pattern: RegEx) -> bool:
+	var hotkey_slots: Dictionary = {}
 	for unit_value in records:
 		if not unit_value is Dictionary:
 			push_error("Unit catalog contains a non-object entry.")
@@ -340,17 +341,34 @@ func _index_units(records: Array, id_pattern: RegEx) -> bool:
 		if str(attack.get("attack_style", "")) not in ["melee", "ranged"] or str(attack.get("damage_type", "")) not in ["physical", "magic"]:
 			push_error("Unit attack classification is invalid: %s" % unit_id)
 			return false
+		if str(attack.get("attack_style", "")) == "ranged":
+			var projectile: Dictionary = attack.get("projectile", {})
+			for projectile_key in ["speed", "radius", "lifetime"]:
+				if float(projectile.get(projectile_key, 0.0)) <= 0.0:
+					push_error("Ranged unit projectile value must be positive: %s.%s" % [unit_id, projectile_key])
+					return false
+			if str(projectile.get("visual_kind", "")) not in ["arrow", "bolt"]:
+				push_error("Ranged unit projectile visual is invalid: %s" % unit_id)
+				return false
 		if int(summon.get("run_gold_cost", 0)) <= 0 or int(summon.get("capacity_cost", 0)) <= 0:
 			push_error("Unit summon costs must be positive: %s" % unit_id)
 			return false
+		var hotkey_slot := int(summon.get("hotkey_slot", 0))
+		if hotkey_slot <= 0 or hotkey_slot > 9 or hotkey_slots.has(hotkey_slot):
+			push_error("Unit summon hotkey slot is invalid or duplicated: %s" % unit_id)
+			return false
+		hotkey_slots[hotkey_slot] = unit_id
 		if float(formation.get("base_radius", 0.0)) <= 0.0 or int(formation.get("slots_per_ring", 0)) <= 0 or float(formation.get("ring_spacing", -1.0)) < 0.0:
 			push_error("Unit formation values are invalid: %s" % unit_id)
 			return false
 		if str(unit.get("name_key", "")).is_empty() or str(unit.get("role_key", "")).is_empty() or str(unit.get("combat_role", "")).is_empty():
 			push_error("Unit identity data is missing: %s" % unit_id)
 			return false
-		if str(presentation.get("visual_kind", "")) not in ["spearman"]:
+		if str(presentation.get("visual_kind", "")) not in ["spearman", "crossbowman", "royal_guard", "ambush_archer", "raider", "elephant_guard", "royal_war_elephant"]:
 			push_error("Unit visual kind is invalid: %s" % unit_id)
+			return false
+		if float(presentation.get("scale", 0.0)) < 0.5 or float(presentation.get("scale", 0.0)) > 2.0:
+			push_error("Unit presentation scale is invalid: %s" % unit_id)
 			return false
 		units[unit_id] = unit.duplicate(true)
 	return true

@@ -17,6 +17,7 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 @onready var enemy_spawn_director: EnemySpawnDirector = %EnemySpawnDirector
 @onready var combat_drop_director: CombatDropDirector = %CombatDropDirector
 @onready var projectile_pool: EnemyProjectilePool = %EnemyProjectilePool
+@onready var ally_projectile_pool: AllyProjectilePool = %AllyProjectilePool
 @onready var army_controller: ArmyController = %ArmyController
 @onready var king: KingController = %King
 @onready var joystick: MovementJoystick = %VirtualJoystick
@@ -30,7 +31,9 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 @onready var enemy_count_label: Label = %EnemyCountLabel
 @onready var run_gold_label: Label = %RunGoldLabel
 @onready var army_capacity_label: Label = %ArmyCapacityLabel
-@onready var summon_button: Button = %SummonButton
+@onready var summon_roster_label: Label = %SummonRosterLabel
+@onready var summon_grid: GridContainer = %SummonGrid
+@onready var summon_button_template: Button = %SummonButtonTemplate
 @onready var control_hint_label: Label = %ControlHintLabel
 @onready var scope_hint_label: Label = %ScopeHintLabel
 @onready var target_label: Label = %TargetLabel
@@ -54,6 +57,8 @@ var _skip_exit_snapshot := false
 var _hold_mouse_active := false
 var _hold_touch_index := -1
 var _hold_pointer_position := Vector2.ZERO
+var _summon_buttons: Dictionary = {}
+var _unit_ids_by_hotkey: Dictionary = {}
 
 
 func _ready() -> void:
@@ -75,15 +80,16 @@ func _ready() -> void:
 		king,
 		int(army_capacity_data.get("max", 20)),
 		_unit_configs,
-		GameSessionService.get_army_state()
+		GameSessionService.get_army_state(),
+		ally_projectile_pool
 	)
+	_build_summon_controls()
 	_configure_infinite_world()
 	enemy_spawn_director.spawn_requested.connect(_on_spawn_requested)
 	_restore_or_create_training_encounter()
 
 	joystick.direction_changed.connect(king.set_virtual_direction)
 	back_button.pressed.connect(_return_to_menu)
-	summon_button.pressed.connect(_summon_spearman)
 	retry_button.pressed.connect(_restart_combat_drill)
 	defeat_back_button.pressed.connect(_return_to_menu)
 	king.defeated.connect(_on_king_defeated)
@@ -136,6 +142,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		_summon_spearman()
 		return
+	for hotkey_slot in range(1, 8):
+		if event.is_action_pressed("summon_unit_%d" % hotkey_slot):
+			get_viewport().set_input_as_handled()
+			var unit_id := StringName(str(_unit_ids_by_hotkey.get(hotkey_slot, "")))
+			if not unit_id.is_empty():
+				_summon_unit(unit_id)
+			return
 	if event.is_action_pressed("pause_game"):
 		get_viewport().set_input_as_handled()
 		_return_to_menu()
@@ -191,6 +204,35 @@ func _load_unit_configs() -> void:
 		var unit_config := ContentDatabase.get_unit(StringName(unit_id))
 		if not unit_config.is_empty():
 			_unit_configs[unit_id] = unit_config
+
+
+func _build_summon_controls() -> void:
+	_summon_buttons.clear()
+	_unit_ids_by_hotkey.clear()
+	for child in summon_grid.get_children():
+		if child != summon_button_template:
+			child.queue_free()
+	var ordered_ids: Array = _unit_configs.keys()
+	ordered_ids.sort_custom(func(left: Variant, right: Variant) -> bool:
+		var left_summon: Dictionary = _unit_configs.get(str(left), {}).get("summon", {})
+		var right_summon: Dictionary = _unit_configs.get(str(right), {}).get("summon", {})
+		return int(left_summon.get("hotkey_slot", 99)) < int(right_summon.get("hotkey_slot", 99))
+	)
+	for unit_id_value in ordered_ids:
+		var unit_id := str(unit_id_value)
+		var config: Dictionary = _unit_configs.get(unit_id, {})
+		var summon_data: Dictionary = config.get("summon", {})
+		var hotkey_slot := int(summon_data.get("hotkey_slot", 0))
+		var button := summon_button_template.duplicate() as Button
+		if button == null:
+			continue
+		button.name = "SummonUnit%d" % hotkey_slot
+		button.visible = true
+		button.set_meta("unit_id", unit_id)
+		button.pressed.connect(_summon_unit.bind(StringName(unit_id)))
+		summon_grid.add_child(button)
+		_summon_buttons[unit_id] = button
+		_unit_ids_by_hotkey[hotkey_slot] = unit_id
 
 
 func _restore_or_create_training_encounter() -> void:
@@ -395,6 +437,7 @@ func _refresh_static_text() -> void:
 	king_title_label.text = LocalizationService.translate_key(str(_king_config.get("title_key", "king.tran_hung_dao.title")))
 	control_hint_label.text = LocalizationService.translate_key("phase2.control_hint")
 	scope_hint_label.text = LocalizationService.translate_key("phase2.scope_hint")
+	summon_roster_label.text = LocalizationService.translate_key("phase4.summon_roster")
 	back_button.text = LocalizationService.translate_key("phase2.back_to_menu")
 	defeat_title_label.text = LocalizationService.translate_key("phase2.defeat_title")
 	defeat_detail_label.text = LocalizationService.translate_key("phase2.defeat_detail")
@@ -432,16 +475,23 @@ func _refresh_live_text() -> void:
 		"phase4.army_capacity",
 		{"used": army_controller.get_used_capacity(), "max": army_controller.maximum_capacity}
 	)
-	var spearman_config: Dictionary = _unit_configs.get(str(SPEARMAN_ID), {})
-	var summon_data: Dictionary = spearman_config.get("summon", {})
-	summon_button.text = LocalizationService.translate_key(
-		"phase4.summon_spearman",
-		{
-			"cost": int(summon_data.get("run_gold_cost", 0)),
-			"capacity": int(summon_data.get("capacity_cost", 0)),
-		}
-	)
-	summon_button.disabled = not army_controller.can_summon(SPEARMAN_ID)
+	for unit_id_value in _summon_buttons:
+		var unit_id := str(unit_id_value)
+		var button := _summon_buttons[unit_id] as Button
+		if not is_instance_valid(button):
+			continue
+		var unit_config: Dictionary = _unit_configs.get(unit_id, {})
+		var summon_data: Dictionary = unit_config.get("summon", {})
+		button.text = LocalizationService.translate_key(
+			"phase4.summon_unit",
+			{
+				"hotkey": int(summon_data.get("hotkey_slot", 0)),
+				"name": LocalizationService.translate_key(str(unit_config.get("name_key", unit_id))),
+				"cost": int(summon_data.get("run_gold_cost", 0)),
+				"capacity": int(summon_data.get("capacity_cost", 0)),
+			}
+		)
+		button.disabled = not army_controller.can_summon(StringName(unit_id))
 	var current_target := king.auto_attack.get_current_target()
 	if is_instance_valid(current_target) and current_target.is_combat_alive():
 		target_label.text = LocalizationService.translate_key(
@@ -506,7 +556,11 @@ func _on_run_gold_spent(_amount: int, _total: int, _context: Dictionary) -> void
 
 
 func _summon_spearman() -> void:
-	var result := army_controller.try_summon(SPEARMAN_ID)
+	_summon_unit(SPEARMAN_ID)
+
+
+func _summon_unit(unit_id: StringName) -> void:
+	var result := army_controller.try_summon(unit_id)
 	if bool(result.get("accepted", false)):
 		_store_combat_state()
 	_refresh_live_text()
@@ -532,6 +586,7 @@ func _on_king_defeated(_context: Dictionary) -> void:
 	_clear_hold_movement()
 	enemy_spawn_director.set_active(false)
 	projectile_pool.set_combat_enabled(false)
+	ally_projectile_pool.set_combat_enabled(false)
 	army_controller.set_combat_enabled(false)
 	for enemy_value in _training_enemies.values():
 		var enemy := enemy_value as GoblinController
@@ -568,6 +623,7 @@ func _return_to_menu() -> void:
 	_clear_hold_movement()
 	enemy_spawn_director.set_active(false)
 	projectile_pool.set_combat_enabled(false)
+	ally_projectile_pool.set_combat_enabled(false)
 	army_controller.set_combat_enabled(false)
 	_store_combat_state()
 	SceneService.change_scene_to_file("res://scenes/menus/main_menu.tscn")

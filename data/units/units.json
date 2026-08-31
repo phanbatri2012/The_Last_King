@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "content_version": "phase4.0",
+  "content_version": "phase4.2",
   "units": [
     {
       "id": "dai_viet_spearman",
@@ -22,7 +22,7 @@
         "attacks_per_second": 1.05,
         "target_refresh": 0.16
       },
-      "summon": {"run_gold_cost": 15, "capacity_cost": 2},
+      "summon": {"run_gold_cost": 15, "capacity_cost": 2, "hotkey_slot": 1},
       "formation": {
         "role": "outer_ring",
         "base_radius": 155.0,
@@ -33,8 +33,119 @@
       "presentation": {
         "visual_kind": "spearman",
         "body_color": "#315f88",
-        "accent_color": "#e0b847"
+        "accent_color": "#e0b847",
+        "scale": 1.0
       }
+    },
+    {
+      "id": "dai_viet_crossbowman",
+      "faction_id": "dai_viet",
+      "name_key": "unit.dai_viet_crossbowman.name",
+      "role_key": "unit.role.ranged_pierce",
+      "status": "active",
+      "combat_role": "ranged_pierce",
+      "health": {"max": 95.0},
+      "defense": {"armor": 3.0, "magic_resistance": 3.0},
+      "movement": {"speed": 260.0, "collision_radius": 16.0},
+      "attack": {
+        "damage": 27.0,
+        "damage_type": "physical",
+        "attack_style": "ranged",
+        "range": 380.0,
+        "detection_range": 520.0,
+        "leash_range": 560.0,
+        "attacks_per_second": 0.72,
+        "target_refresh": 0.18,
+        "projectile": {"speed": 760.0, "radius": 4.0, "lifetime": 1.0, "visual_kind": "bolt"}
+      },
+      "summon": {"run_gold_cost": 18, "capacity_cost": 2, "hotkey_slot": 2},
+      "formation": {"role": "ranged_ring", "base_radius": 130.0, "slots_per_ring": 10, "ring_spacing": 46.0, "angle_offset_degrees": -90.0},
+      "presentation": {"visual_kind": "crossbowman", "body_color": "#274d72", "accent_color": "#d7a83d", "scale": 0.96}
+    },
+    {
+      "id": "dai_viet_royal_guard",
+      "faction_id": "dai_viet",
+      "name_key": "unit.dai_viet_royal_guard.name",
+      "role_key": "unit.role.king_guard",
+      "status": "active",
+      "combat_role": "melee_tank_guard",
+      "health": {"max": 240.0},
+      "defense": {"armor": 18.0, "magic_resistance": 10.0},
+      "movement": {"speed": 255.0, "collision_radius": 20.0},
+      "attack": {"damage": 32.0, "damage_type": "physical", "attack_style": "melee", "range": 78.0, "detection_range": 250.0, "leash_range": 300.0, "attacks_per_second": 0.82, "target_refresh": 0.16},
+      "summon": {"run_gold_cost": 28, "capacity_cost": 3, "hotkey_slot": 3},
+      "formation": {"role": "inner_guard", "base_radius": 88.0, "slots_per_ring": 6, "ring_spacing": 42.0, "angle_offset_degrees": -90.0},
+      "presentation": {"visual_kind": "royal_guard", "body_color": "#233e5b", "accent_color": "#f0c34f", "scale": 1.08}
+    },
+    {
+      "id": "dai_viet_ambush_archer",
+      "faction_id": "dai_viet",
+      "name_key": "unit.dai_viet_ambush_archer.name",
+      "role_key": "unit.role.rapid_ranged",
+      "status": "active",
+      "combat_role": "ranged_mobile",
+      "health": {"max": 88.0},
+      "defense": {"armor": 2.0, "magic_resistance": 4.0},
+      "movement": {"speed": 305.0, "collision_radius": 15.0},
+      "attack": {
+        "damage": 19.0,
+        "damage_type": "physical",
+        "attack_style": "ranged",
+        "range": 460.0,
+        "detection_range": 580.0,
+        "leash_range": 620.0,
+        "attacks_per_second": 1.05,
+        "target_refresh": 0.15,
+        "projectile": {"speed": 680.0, "radius": 4.0, "lifetime": 1.15, "visual_kind": "arrow"}
+      },
+      "summon": {"run_gold_cost": 22, "capacity_cost": 2, "hotkey_slot": 4},
+      "formation": {"role": "ranged_ring", "base_radius": 130.0, "slots_per_ring": 10, "ring_spacing": 46.0, "angle_offset_degrees": -90.0},
+      "presentation": {"visual_kind": "ambush_archer", "body_color": "#315947", "accent_color": "#b7c85c", "scale": 0.94}
+    },
+    {
+      "id": "dai_viet_raider",
+      "faction_id": "dai_viet",
+      "name_key": "unit.dai_viet_raider.name",
+      "role_key": "unit.role.mobile_flanker",
+      "status": "active",
+      "combat_role": "melee_mobile_flanker",
+      "health": {"max": 115.0},
+      "defense": {"armor": 5.0, "magic_resistance": 4.0},
+      "movement": {"speed": 370.0, "collision_radius": 16.0},
+      "attack": {"damage": 26.0, "damage_type": "physical", "attack_style": "melee", "range": 68.0, "detection_range": 330.0, "leash_range": 440.0, "attacks_per_second": 1.35, "target_refresh": 0.12},
+      "summon": {"run_gold_cost": 20, "capacity_cost": 2, "hotkey_slot": 5},
+      "formation": {"role": "mobile_wing", "base_radius": 210.0, "slots_per_ring": 8, "ring_spacing": 52.0, "angle_offset_degrees": -67.5},
+      "presentation": {"visual_kind": "raider", "body_color": "#365f68", "accent_color": "#d58d3f", "scale": 0.98}
+    },
+    {
+      "id": "dai_viet_elephant_guard",
+      "faction_id": "dai_viet",
+      "name_key": "unit.dai_viet_elephant_guard.name",
+      "role_key": "unit.role.heavy_vanguard",
+      "status": "active",
+      "combat_role": "melee_heavy",
+      "health": {"max": 420.0},
+      "defense": {"armor": 20.0, "magic_resistance": 8.0},
+      "movement": {"speed": 200.0, "collision_radius": 28.0},
+      "attack": {"damage": 52.0, "damage_type": "physical", "attack_style": "melee", "range": 92.0, "detection_range": 280.0, "leash_range": 390.0, "attacks_per_second": 0.58, "target_refresh": 0.2},
+      "summon": {"run_gold_cost": 45, "capacity_cost": 5, "hotkey_slot": 6},
+      "formation": {"role": "heavy_vanguard", "base_radius": 185.0, "slots_per_ring": 6, "ring_spacing": 62.0, "angle_offset_degrees": -90.0},
+      "presentation": {"visual_kind": "elephant_guard", "body_color": "#435966", "accent_color": "#d2a33e", "scale": 1.3}
+    },
+    {
+      "id": "dai_viet_royal_war_elephant",
+      "faction_id": "dai_viet",
+      "name_key": "unit.dai_viet_royal_war_elephant.name",
+      "role_key": "unit.role.royal_heavy",
+      "status": "active",
+      "combat_role": "melee_royal_heavy",
+      "health": {"max": 700.0},
+      "defense": {"armor": 28.0, "magic_resistance": 14.0},
+      "movement": {"speed": 180.0, "collision_radius": 34.0},
+      "attack": {"damage": 78.0, "damage_type": "physical", "attack_style": "melee", "range": 112.0, "detection_range": 300.0, "leash_range": 430.0, "attacks_per_second": 0.46, "target_refresh": 0.22},
+      "summon": {"run_gold_cost": 75, "capacity_cost": 8, "hotkey_slot": 7},
+      "formation": {"role": "royal_heavy", "base_radius": 225.0, "slots_per_ring": 4, "ring_spacing": 74.0, "angle_offset_degrees": -45.0},
+      "presentation": {"visual_kind": "royal_war_elephant", "body_color": "#394d5b", "accent_color": "#f0c64f", "scale": 1.55}
     }
   ]
 }

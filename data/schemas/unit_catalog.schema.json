@@ -54,16 +54,34 @@
               "detection_range": {"type": "number", "exclusiveMinimum": 0},
               "leash_range": {"type": "number", "exclusiveMinimum": 0},
               "attacks_per_second": {"type": "number", "exclusiveMinimum": 0},
-              "target_refresh": {"type": "number", "exclusiveMinimum": 0}
+              "target_refresh": {"type": "number", "exclusiveMinimum": 0},
+              "projectile": {
+                "type": "object",
+                "required": ["speed", "radius", "lifetime", "visual_kind"],
+                "properties": {
+                  "speed": {"type": "number", "exclusiveMinimum": 0},
+                  "radius": {"type": "number", "exclusiveMinimum": 0},
+                  "lifetime": {"type": "number", "exclusiveMinimum": 0},
+                  "visual_kind": {"enum": ["arrow", "bolt"]}
+                },
+                "additionalProperties": false
+              }
             },
+            "allOf": [
+              {
+                "if": {"properties": {"attack_style": {"const": "ranged"}}},
+                "then": {"required": ["projectile"]}
+              }
+            ],
             "additionalProperties": false
           },
           "summon": {
             "type": "object",
-            "required": ["run_gold_cost", "capacity_cost"],
+            "required": ["run_gold_cost", "capacity_cost", "hotkey_slot"],
             "properties": {
               "run_gold_cost": {"type": "integer", "minimum": 1},
-              "capacity_cost": {"type": "integer", "minimum": 1}
+              "capacity_cost": {"type": "integer", "minimum": 1},
+              "hotkey_slot": {"type": "integer", "minimum": 1, "maximum": 9}
             },
             "additionalProperties": false
           },
@@ -81,11 +99,12 @@
           },
           "presentation": {
             "type": "object",
-            "required": ["visual_kind", "body_color", "accent_color"],
+            "required": ["visual_kind", "body_color", "accent_color", "scale"],
             "properties": {
-              "visual_kind": {"enum": ["spearman"]},
+              "visual_kind": {"enum": ["spearman", "crossbowman", "royal_guard", "ambush_archer", "raider", "elephant_guard", "royal_war_elephant"]},
               "body_color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
-              "accent_color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"}
+              "accent_color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+              "scale": {"type": "number", "minimum": 0.5, "maximum": 2.0}
             },
             "additionalProperties": false
           }

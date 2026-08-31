@@ -68,10 +68,8 @@ func _draw() -> void:
 
 
 func _draw_telegraph(progress: float, color: Color) -> void:
-	var start := _direction * 28.0
-	var finish := _direction * _reach
-	var warning_color := Color(color, 0.18 + progress * 0.62)
-	draw_dashed_line(start, finish, warning_color, 3.0, 12.0, true)
-	var marker_radius := lerpf(18.0, 7.0, progress)
-	draw_circle(finish, marker_radius, Color(color, 0.08 + progress * 0.18))
-	draw_arc(finish, marker_radius, 0.0, TAU * progress, 24, Color(color, 0.72 + progress * 0.23), 3.0, true)
+	var charge_position := _direction * 30.0
+	var charge_radius := lerpf(12.0, 5.0, progress)
+	draw_circle(charge_position, charge_radius * 1.8, Color(color, 0.08 + progress * 0.16))
+	draw_circle(charge_position, charge_radius, Color(color, 0.4 + progress * 0.5))
+	draw_arc(Vector2.ZERO, 35.0, -PI * 0.5, -PI * 0.5 + TAU * progress, 28, Color(color, 0.52 + progress * 0.36), 3.0, true)

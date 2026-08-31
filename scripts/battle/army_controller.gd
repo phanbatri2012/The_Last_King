@@ -10,6 +10,7 @@ const DEFEATED_UNIT_CLEANUP_SEC := 0.65
 
 var maximum_capacity := 20
 var _king: KingController
+var _projectile_pool: AllyProjectilePool
 var _unit_configs: Dictionary = {}
 var _units: Dictionary = {}
 var _next_unit_serial := 1
@@ -20,9 +21,11 @@ func configure(
 	host_king: KingController,
 	new_maximum_capacity: int,
 	unit_configs: Dictionary,
-	restored_units: Array = []
+	restored_units: Array = [],
+	projectile_pool: AllyProjectilePool = null
 ) -> void:
 	_king = host_king
+	_projectile_pool = projectile_pool
 	maximum_capacity = maxi(new_maximum_capacity, 1)
 	_unit_configs = unit_configs.duplicate(true)
 	for snapshot_value in restored_units:
@@ -174,21 +177,24 @@ func _create_unit(
 		return null
 	unit.global_position = world_position
 	add_child(unit)
-	unit.configure(config, instance_key, _king, restored_health)
+	unit.configure(config, instance_key, _king, restored_health, _projectile_pool)
 	unit.defeated.connect(_on_unit_defeated)
 	_units[instance_key] = unit
 	return unit
 
 
 func _refresh_formation_slots() -> void:
-	var formation_index := 0
+	var role_indices: Dictionary = {}
 	for instance_key in _units.keys():
 		var unit := _units[instance_key] as SummonedUnitController
 		if not is_instance_valid(unit) or not unit.is_combat_alive():
 			continue
 		var config: Dictionary = _unit_configs.get(str(unit.unit_id), {})
-		unit.set_formation_offset(FormationSlotCalculator.ring_slot(formation_index, config.get("formation", {})))
-		formation_index += 1
+		var formation: Dictionary = config.get("formation", {})
+		var role := str(formation.get("role", "default"))
+		var formation_index := int(role_indices.get(role, 0))
+		unit.set_formation_offset(FormationSlotCalculator.ring_slot(formation_index, formation))
+		role_indices[role] = formation_index + 1
 
 
 func _on_unit_defeated(unit: SummonedUnitController, context: Dictionary) -> void:
