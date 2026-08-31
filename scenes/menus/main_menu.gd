@@ -56,7 +56,7 @@ func _refresh_text() -> void:
 		"phase0.roster",
 		{"count": ContentDatabase.factions.size()}
 	)
-	status_label.text = LocalizationService.translate_key("phase1.menu_status")
+	status_label.text = LocalizationService.translate_key("phase2.menu_status")
 
 
 func _on_language_selected(index: int) -> void:

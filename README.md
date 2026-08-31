@@ -4,9 +4,9 @@ Top-down historical-fantasy survivor with army building, roguelite runs, and per
 
 Rise as a legendary ruler, survive enemy hordes, command ancient armies, collect gold, unlock skills, summon iconic warriors, and defeat colossal bosses.
 
-## Phase 1 status
+## Phase 2 status
 
-This repository contains the technical foundation and the first playable movement slice:
+This repository contains the technical foundation and the first playable combat slice:
 
 - Godot bootstrap and global service lifecycle;
 - platform adapter boundary;
@@ -14,13 +14,16 @@ This repository contains the technical foundation and the first playable movemen
 - English (US) canonical localization with Vietnamese support;
 - open-ended faction roster data;
 - data-driven Trần Hưng Đạo placeholder King;
-- responsive empty arena with bounded smooth camera;
+- procedurally tiled infinite battlefield with a smooth unbounded camera;
 - normalized WASD/Arrow Keys and analog pointer/touch joystick movement;
-- in-memory movement session with Continue support;
+- data-driven Goblins with pursuit, melee attacks, health, and death;
+- nearest-target selection and automatic King attacks;
+- one shared damage resolver for King and enemy damage;
+- localized combat HUD, defeat/retry flow, and in-memory Continue state;
 - desktop and web export presets;
 - headless smoke tests.
 
-Combat and the survivor loop intentionally begin in later phases.
+Enemy waves, XP, Run Level, and level-up cards intentionally begin in Phase 3.
 
 ## Toolchain
 
@@ -56,8 +59,10 @@ Open `project.godot` in Godot and run the project, or from PowerShell:
 
 Generated exports belong in `build/` and are not committed.
 
+After GitHub Pages is enabled for the repository, pushes to `main` publish a browser preview at `https://phanbatri2012.github.io/The_Last_King/`.
+
 To import, test, smoke-run, export both targets, and validate the Web bundle in one command:
 
 ```powershell
-.\tools\run_phase1.ps1
+.\tools\run_phase2.ps1
 ```

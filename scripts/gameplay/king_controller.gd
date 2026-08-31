@@ -2,6 +2,7 @@ class_name KingController
 extends CharacterBody2D
 
 signal movement_changed(world_position: Vector2, current_velocity: Vector2)
+signal defeated(context: Dictionary)
 
 @export_range(1.0, 1000.0, 1.0) var move_speed := 340.0
 @export_range(1.0, 100.0, 1.0) var collision_radius := 30.0
@@ -10,14 +11,20 @@ signal movement_changed(world_position: Vector2, current_velocity: Vector2)
 @onready var visual: KingPlaceholderVisual = %Visual
 @onready var collision_shape: CollisionShape2D = %CollisionShape
 @onready var follow_camera: Camera2D = %FollowCamera
+@onready var health: HealthComponent = %Health
+@onready var auto_attack: KingAutoAttackController = %AutoAttack
 
+var king_id: StringName = &"tran_hung_dao"
 var _virtual_direction := Vector2.ZERO
 var _keyboard_enabled := true
 var _movement_enabled := true
+var _movement_bounds_enabled := false
 
 
 func _ready() -> void:
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
+	health.health_changed.connect(_on_health_changed)
+	health.died.connect(_on_died)
 	_apply_collision_radius()
 
 
@@ -30,18 +37,25 @@ func _physics_process(_delta: float) -> void:
 		desired_direction = MovementInputResolver.resolve(keyboard_direction, _virtual_direction)
 	velocity = MovementInputResolver.to_velocity(desired_direction, move_speed)
 	move_and_slide()
-	_clamp_to_movement_bounds()
+	if _movement_bounds_enabled:
+		_clamp_to_movement_bounds()
 	visual.set_motion(velocity)
 	movement_changed.emit(global_position, velocity)
 
 
 func configure(config: Dictionary) -> void:
+	king_id = StringName(str(config.get("id", king_id)))
 	var movement_value: Variant = config.get("movement", {})
-	if not movement_value is Dictionary:
-		return
-	var movement: Dictionary = movement_value
-	move_speed = float(movement.get("speed", move_speed))
-	collision_radius = float(movement.get("collision_radius", collision_radius))
+	if movement_value is Dictionary:
+		var movement: Dictionary = movement_value
+		move_speed = float(movement.get("speed", move_speed))
+		collision_radius = float(movement.get("collision_radius", collision_radius))
+	var health_value: Variant = config.get("health", {})
+	if health_value is Dictionary:
+		health.configure(float(health_value.get("max", health.max_health)))
+	var attack_value: Variant = config.get("attack", {})
+	if attack_value is Dictionary:
+		auto_attack.configure(attack_value)
 	if is_node_ready():
 		_apply_collision_radius()
 
@@ -62,7 +76,33 @@ func set_movement_enabled(enabled: bool) -> void:
 
 func set_movement_bounds(bounds: Rect2) -> void:
 	movement_bounds = bounds.abs()
+	_movement_bounds_enabled = true
 	_clamp_to_movement_bounds()
+
+
+func clear_movement_bounds() -> void:
+	_movement_bounds_enabled = false
+
+
+func has_movement_bounds() -> bool:
+	return _movement_bounds_enabled
+
+
+func restore_health(current_health: float) -> void:
+	health.configure(health.max_health, current_health)
+	if health.is_alive():
+		_movement_enabled = true
+		_keyboard_enabled = true
+		auto_attack.set_combat_enabled(true)
+	else:
+		_movement_enabled = false
+		_keyboard_enabled = false
+		auto_attack.set_combat_enabled(false)
+		visual.set_defeated()
+
+
+func is_combat_alive() -> bool:
+	return health != null and health.is_alive()
 
 
 func _apply_collision_radius() -> void:
@@ -75,3 +115,17 @@ func _clamp_to_movement_bounds() -> void:
 	var minimum := movement_bounds.position + Vector2.ONE * collision_radius
 	var maximum := movement_bounds.end - Vector2.ONE * collision_radius
 	global_position = global_position.clamp(minimum, maximum)
+
+
+func _on_health_changed(_current: float, _maximum: float, delta: float, _context: Dictionary) -> void:
+	if delta < 0.0:
+		visual.play_hurt()
+
+
+func _on_died(context: Dictionary) -> void:
+	set_movement_enabled(false)
+	set_keyboard_enabled(false)
+	auto_attack.set_combat_enabled(false)
+	velocity = Vector2.ZERO
+	visual.set_defeated()
+	defeated.emit(context.duplicate(true))

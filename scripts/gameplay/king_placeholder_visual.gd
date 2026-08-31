@@ -4,14 +4,19 @@ extends Node2D
 var _facing := Vector2.RIGHT
 var _moving := false
 var _step_phase := 0.0
+var _attack_pulse := 0.0
+var _hurt_flash := 0.0
+var _defeated := false
 
 
 func _process(delta: float) -> void:
-	if _moving:
+	if _moving and not _defeated:
 		_step_phase += delta * 10.0
 		position.y = sin(_step_phase) * 2.5
 	else:
 		position.y = lerpf(position.y, 0.0, minf(delta * 12.0, 1.0))
+	_attack_pulse = maxf(_attack_pulse - delta * 5.0, 0.0)
+	_hurt_flash = maxf(_hurt_flash - delta * 6.0, 0.0)
 	queue_redraw()
 
 
@@ -21,7 +26,32 @@ func set_motion(current_velocity: Vector2) -> void:
 		_facing = current_velocity.normalized()
 
 
+func play_attack(direction: Vector2) -> void:
+	if not direction.is_zero_approx():
+		_facing = direction.normalized()
+	_attack_pulse = 1.0
+
+
+func play_hurt() -> void:
+	_hurt_flash = 1.0
+
+
+func set_defeated() -> void:
+	_defeated = true
+	_moving = false
+	queue_redraw()
+
+
 func _draw() -> void:
+	var armor_color := Color(0.08, 0.23, 0.34, 1.0)
+	var cape_color := Color(0.36, 0.055, 0.07, 1.0)
+	if _hurt_flash > 0.0:
+		armor_color = armor_color.lerp(Color(0.86, 0.34, 0.24, 1.0), _hurt_flash)
+		cape_color = cape_color.lerp(Color(0.95, 0.52, 0.32, 1.0), _hurt_flash)
+	if _defeated:
+		armor_color = Color(0.12, 0.14, 0.16, 0.76)
+		cape_color = Color(0.18, 0.08, 0.08, 0.68)
+
 	draw_set_transform(Vector2(0.0, 29.0), 0.0, Vector2(1.35, 0.38))
 	draw_circle(Vector2.ZERO, 25.0, Color(0.0, 0.0, 0.0, 0.38))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -33,12 +63,12 @@ func _draw() -> void:
 		Vector2(18.0, 34.0),
 		Vector2(-18.0, 34.0),
 	])
-	draw_colored_polygon(cape_points, Color(0.36, 0.055, 0.07, 1.0))
-	draw_circle(Vector2(0.0, 7.0), 26.0, Color(0.08, 0.23, 0.34, 1.0))
+	draw_colored_polygon(cape_points, cape_color)
+	draw_circle(Vector2(0.0, 7.0), 26.0, armor_color)
 	draw_arc(Vector2(0.0, 7.0), 26.0, 0.0, TAU, 48, Color(0.88, 0.67, 0.2, 1.0), 3.0, true)
 
 	var weapon_start := _facing * 16.0 + side * 10.0 + Vector2(0.0, 8.0)
-	var weapon_end := weapon_start + _facing * 48.0
+	var weapon_end := weapon_start + _facing * (48.0 + _attack_pulse * 18.0)
 	draw_line(weapon_start, weapon_end, Color(0.82, 0.86, 0.9, 1.0), 7.0, true)
 	draw_line(weapon_start + _facing * 4.0 - side * 10.0, weapon_start + _facing * 4.0 + side * 10.0, Color(0.9, 0.68, 0.2, 1.0), 5.0, true)
 

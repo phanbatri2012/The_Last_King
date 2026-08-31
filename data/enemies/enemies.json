@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "content_version": "phase2.0",
+  "enemies": [
+    {
+      "id": "goblin",
+      "name_key": "enemy.goblin.name",
+      "status": "mvp",
+      "health": {
+        "max": 90.0
+      },
+      "movement": {
+        "speed": 115.0,
+        "collision_radius": 24.0,
+        "aggro_range": 900.0
+      },
+      "attack": {
+        "damage": 22.0,
+        "range": 72.0,
+        "cooldown": 1.15
+      }
+    }
+  ]
+}

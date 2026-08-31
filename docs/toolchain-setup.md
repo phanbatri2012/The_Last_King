@@ -29,7 +29,7 @@ This creates the ignored `tools/export_templates/web_playables_release.zip` refe
 ## Verify everything
 
 ```powershell
-.\tools\run_phase1.ps1
+.\tools\run_phase2.ps1
 ```
 
 The command imports the project, runs automated tests, smoke-runs the Bootstrap scene, exports Windows and Web release builds, and validates the Web bundle limits.

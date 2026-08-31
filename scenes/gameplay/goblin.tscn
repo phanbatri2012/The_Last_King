@@ -1,0 +1,26 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/goblin_controller.gd" id="1_controller"]
+[ext_resource type="Script" path="res://scripts/gameplay/goblin_placeholder_visual.gd" id="2_visual"]
+[ext_resource type="Script" path="res://scripts/combat/health_component.gd" id="3_health"]
+
+[sub_resource type="CircleShape2D" id="CircleGoblin"]
+radius = 24.0
+
+[node name="Goblin" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_controller")
+
+[node name="Visual" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_visual")
+
+[node name="CollisionShape" type="CollisionShape2D" parent="."]
+unique_name_in_owner = true
+shape = SubResource("CircleGoblin")
+
+[node name="Health" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("3_health")
+max_health = 90.0

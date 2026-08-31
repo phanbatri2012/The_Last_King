@@ -1,7 +1,7 @@
 class_name BattleSession
 extends RefCounted
 
-const SCHEMA_VERSION := 1
+const SCHEMA_VERSION := 2
 
 var session_id := ""
 var seed := 0
@@ -27,6 +27,7 @@ var pause_state: Dictionary = {}
 var king_state: Dictionary = {
 	"position": {"x": 0.0, "y": 0.0},
 	"velocity": {"x": 0.0, "y": 0.0},
+	"health": {"current": -1.0, "max": -1.0},
 }
 
 

@@ -52,9 +52,16 @@ func advance(delta: float) -> void:
 func set_king_movement_state(position: Vector2, current_velocity: Vector2) -> void:
 	if active_session == null:
 		return
-	active_session.king_state = {
-		"position": {"x": position.x, "y": position.y},
-		"velocity": {"x": current_velocity.x, "y": current_velocity.y},
+	active_session.king_state["position"] = {"x": position.x, "y": position.y}
+	active_session.king_state["velocity"] = {"x": current_velocity.x, "y": current_velocity.y}
+
+
+func set_king_health_state(current_health: float, max_health: float) -> void:
+	if active_session == null:
+		return
+	active_session.king_state["health"] = {
+		"current": current_health,
+		"max": max_health,
 	}
 
 
@@ -69,6 +76,33 @@ func get_king_position(fallback: Vector2 = Vector2.ZERO) -> Vector2:
 		float(position_data.get("x", fallback.x)),
 		float(position_data.get("y", fallback.y))
 	)
+
+
+func get_king_health(fallback: float) -> float:
+	if active_session == null:
+		return fallback
+	var health_value: Variant = active_session.king_state.get("health", {})
+	if not health_value is Dictionary:
+		return fallback
+	var health_data: Dictionary = health_value
+	var current := float(health_data.get("current", fallback))
+	return fallback if current < 0.0 else current
+
+
+func set_enemy_combat_state(living_enemies: Array[Dictionary], defeated_instance_ids: PackedStringArray) -> void:
+	if active_session == null:
+		return
+	active_session.enemy_wave_state = {
+		"encounter_id": "phase2_combat_drill",
+		"living_enemies": living_enemies.duplicate(true),
+		"defeated_instance_ids": Array(defeated_instance_ids),
+	}
+
+
+func get_enemy_combat_state() -> Dictionary:
+	if active_session == null:
+		return {}
+	return active_session.enemy_wave_state.duplicate(true)
 
 
 func _on_pause_state_changed(paused: bool) -> void:

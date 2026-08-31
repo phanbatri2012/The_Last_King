@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "content_version": "phase1.1",
+  "content_version": "phase2.0",
   "kings": [
     {
       "id": "tran_hung_dao",
@@ -11,6 +11,15 @@
       "movement": {
         "speed": 340.0,
         "collision_radius": 30.0
+      },
+      "health": {
+        "max": 260.0
+      },
+      "attack": {
+        "damage": 40.0,
+        "range": 225.0,
+        "cooldown": 0.55,
+        "target_refresh": 0.12
       }
     }
   ]

@@ -1,32 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "The Last King king catalog",
+  "title": "The Last King enemy catalog",
   "type": "object",
-  "required": ["schema_version", "content_version", "kings"],
+  "required": ["schema_version", "content_version", "enemies"],
   "properties": {
     "schema_version": {"type": "integer", "minimum": 1},
     "content_version": {"type": "string", "minLength": 1},
-    "kings": {
+    "enemies": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "faction_id", "name_key", "title_key", "status", "movement", "health", "attack"],
+        "required": ["id", "name_key", "status", "health", "movement", "attack"],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
-          "faction_id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
           "name_key": {"type": "string", "minLength": 1},
-          "title_key": {"type": "string", "minLength": 1},
           "status": {"type": "string", "minLength": 1},
-          "movement": {
-            "type": "object",
-            "required": ["speed", "collision_radius"],
-            "properties": {
-              "speed": {"type": "number", "exclusiveMinimum": 0},
-              "collision_radius": {"type": "number", "exclusiveMinimum": 0}
-            },
-            "additionalProperties": false
-          },
           "health": {
             "type": "object",
             "required": ["max"],
@@ -35,19 +24,28 @@
             },
             "additionalProperties": false
           },
+          "movement": {
+            "type": "object",
+            "required": ["speed", "collision_radius", "aggro_range"],
+            "properties": {
+              "speed": {"type": "number", "exclusiveMinimum": 0},
+              "collision_radius": {"type": "number", "exclusiveMinimum": 0},
+              "aggro_range": {"type": "number", "exclusiveMinimum": 0}
+            },
+            "additionalProperties": false
+          },
           "attack": {
             "type": "object",
-            "required": ["damage", "range", "cooldown", "target_refresh"],
+            "required": ["damage", "range", "cooldown"],
             "properties": {
               "damage": {"type": "number", "exclusiveMinimum": 0},
               "range": {"type": "number", "exclusiveMinimum": 0},
-              "cooldown": {"type": "number", "exclusiveMinimum": 0},
-              "target_refresh": {"type": "number", "exclusiveMinimum": 0}
+              "cooldown": {"type": "number", "exclusiveMinimum": 0}
             },
             "additionalProperties": false
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
       }
     }
   },

@@ -1,0 +1,82 @@
+name: Deploy Web build to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Download official Godot editor and export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          release="${GODOT_VERSION}-stable"
+          base_url="https://github.com/godotengine/godot-builds/releases/download/${release}"
+          curl --fail --location --retry 3 \
+            --output "${RUNNER_TEMP}/godot.zip" \
+            "${base_url}/Godot_v${release}_linux.x86_64.zip"
+          curl --fail --location --retry 3 \
+            --output "${RUNNER_TEMP}/templates.tpz" \
+            "${base_url}/Godot_v${release}_export_templates.tpz"
+          mkdir -p "${RUNNER_TEMP}/godot" "${RUNNER_TEMP}/godot-templates"
+          unzip -q "${RUNNER_TEMP}/godot.zip" -d "${RUNNER_TEMP}/godot"
+          unzip -q "${RUNNER_TEMP}/templates.tpz" -d "${RUNNER_TEMP}/godot-templates"
+          chmod +x "${RUNNER_TEMP}/godot/Godot_v${release}_linux.x86_64"
+          template_dir="${HOME}/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "${template_dir}"
+          cp -R "${RUNNER_TEMP}/godot-templates/templates/." "${template_dir}/"
+
+      - name: Import and test project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot_bin="${RUNNER_TEMP}/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          "${godot_bin}" --headless --path "${GITHUB_WORKSPACE}" --editor --quit
+          "${godot_bin}" --headless --path "${GITHUB_WORKSPACE}" --script res://tests/run_tests.gd
+
+      - name: Export GitHub Pages build
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot_bin="${RUNNER_TEMP}/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          mkdir -p build/pages
+          "${godot_bin}" --headless --path "${GITHUB_WORKSPACE}" --export-release "Web Pages" build/pages/index.html
+          test -f build/pages/index.html
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/pages
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -2,10 +2,13 @@ extends Node
 
 const FACTION_ROSTER_PATH := "res://data/factions/faction_roster.json"
 const KING_CATALOG_PATH := "res://data/kings/kings.json"
+const ENEMY_CATALOG_PATH := "res://data/enemies/enemies.json"
 
 var factions: Dictionary = {}
 var kings: Dictionary = {}
+var enemies: Dictionary = {}
 var content_version := ""
+var enemy_content_version := ""
 var _initialized := false
 
 
@@ -15,6 +18,7 @@ func initialize() -> bool:
 
 	factions.clear()
 	kings.clear()
+	enemies.clear()
 
 	var faction_source := _load_json(FACTION_ROSTER_PATH)
 	if faction_source.is_empty() or not faction_source.get("factions", null) is Array:
@@ -24,6 +28,10 @@ func initialize() -> bool:
 	if king_source.is_empty() or not king_source.get("kings", null) is Array:
 		push_error("King catalog is missing or invalid.")
 		return false
+	var enemy_source := _load_json(ENEMY_CATALOG_PATH)
+	if enemy_source.is_empty() or not enemy_source.get("enemies", null) is Array:
+		push_error("Enemy catalog is missing or invalid.")
+		return false
 
 	var id_pattern := RegEx.new()
 	id_pattern.compile("^[a-z0-9]+(?:_[a-z0-9]+)*$")
@@ -32,10 +40,16 @@ func initialize() -> bool:
 		return false
 	if not _index_kings(king_source["kings"], id_pattern):
 		return false
+	if not _index_enemies(enemy_source["enemies"], id_pattern):
+		return false
 
 	content_version = str(king_source.get("content_version", ""))
 	if content_version.is_empty():
 		push_error("King catalog content_version is missing.")
+		return false
+	enemy_content_version = str(enemy_source.get("content_version", ""))
+	if enemy_content_version.is_empty():
+		push_error("Enemy catalog content_version is missing.")
 		return false
 
 	_initialized = true
@@ -68,6 +82,8 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 		var king_id := str(king.get("id", ""))
 		var faction_id := str(king.get("faction_id", ""))
 		var movement_value: Variant = king.get("movement", null)
+		var health_value: Variant = king.get("health", null)
+		var attack_value: Variant = king.get("attack", null)
 		if id_pattern.search(king_id) == null:
 			push_error("Invalid King ID: %s" % king_id)
 			return false
@@ -80,11 +96,54 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 		if not movement_value is Dictionary:
 			push_error("King movement data is missing: %s" % king_id)
 			return false
+		if not health_value is Dictionary or not attack_value is Dictionary:
+			push_error("King combat data is missing: %s" % king_id)
+			return false
 		var movement: Dictionary = movement_value
 		if float(movement.get("speed", 0.0)) <= 0.0 or float(movement.get("collision_radius", 0.0)) <= 0.0:
 			push_error("King movement values must be positive: %s" % king_id)
 			return false
+		var health: Dictionary = health_value
+		var attack: Dictionary = attack_value
+		if float(health.get("max", 0.0)) <= 0.0:
+			push_error("King health must be positive: %s" % king_id)
+			return false
+		for attack_key in ["damage", "range", "cooldown", "target_refresh"]:
+			if float(attack.get(attack_key, 0.0)) <= 0.0:
+				push_error("King attack value must be positive: %s.%s" % [king_id, attack_key])
+				return false
 		kings[king_id] = king.duplicate(true)
+	return true
+
+
+func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
+	for enemy_value in records:
+		if not enemy_value is Dictionary:
+			push_error("Enemy catalog contains a non-object entry.")
+			return false
+		var enemy: Dictionary = enemy_value
+		var enemy_id := str(enemy.get("id", ""))
+		if id_pattern.search(enemy_id) == null:
+			push_error("Invalid enemy ID: %s" % enemy_id)
+			return false
+		if enemies.has(enemy_id):
+			push_error("Duplicate enemy ID: %s" % enemy_id)
+			return false
+		var health: Dictionary = enemy.get("health", {})
+		var movement: Dictionary = enemy.get("movement", {})
+		var attack: Dictionary = enemy.get("attack", {})
+		if float(health.get("max", 0.0)) <= 0.0:
+			push_error("Enemy health must be positive: %s" % enemy_id)
+			return false
+		for movement_key in ["speed", "collision_radius", "aggro_range"]:
+			if float(movement.get(movement_key, 0.0)) <= 0.0:
+				push_error("Enemy movement value must be positive: %s.%s" % [enemy_id, movement_key])
+				return false
+		for attack_key in ["damage", "range", "cooldown"]:
+			if float(attack.get(attack_key, 0.0)) <= 0.0:
+				push_error("Enemy attack value must be positive: %s.%s" % [enemy_id, attack_key])
+				return false
+		enemies[enemy_id] = enemy.duplicate(true)
 	return true
 
 
@@ -108,6 +167,18 @@ func get_king_ids() -> PackedStringArray:
 	var ids := PackedStringArray()
 	for king_id in kings.keys():
 		ids.append(str(king_id))
+	ids.sort()
+	return ids
+
+
+func get_enemy(enemy_id: StringName) -> Dictionary:
+	return enemies.get(str(enemy_id), {}).duplicate(true)
+
+
+func get_enemy_ids() -> PackedStringArray:
+	var ids := PackedStringArray()
+	for enemy_id in enemies.keys():
+		ids.append(str(enemy_id))
 	ids.sort()
 	return ids
 
