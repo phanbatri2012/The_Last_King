@@ -323,8 +323,11 @@ func _test_goblin_threat_progression() -> void:
 	_expect(str(config.get("content_version", "")).begins_with("phase6"), "Goblin threat progression has an independent Phase 6 content version.")
 	var phases: Array = config.get("phases", [])
 	var bosses: Array = config.get("bosses", [])
+	var contact_damage: Dictionary = config.get("contact_damage", {})
 	_expect(phases.size() == 11, "Threat Director contains the complete Story and Endless phase ladder.")
 	_expect(bosses.size() == 12, "Boss ladder contains twelve data-driven bosses.")
+	_expect(float(contact_damage.get("damage_multiplier", 0.0)) > 0.0, "Goblin contact damage has a positive data-driven multiplier.")
+	_expect(float(contact_damage.get("cooldown", 0.0)) > 0.0, "Goblin contact damage has an independent cooldown.")
 	var signatures: Dictionary = {}
 	var previous_hp_multiplier := 0.0
 	var previous_damage_multiplier := 0.0
@@ -429,7 +432,8 @@ func _test_king_skill_catalog() -> void:
 	_expect(int(catalog.get("schema_version", 0)) == 1, "King skill catalog is versioned.")
 	_expect(str(catalog.get("content_version", "")).begins_with("phase5"), "King skill catalog identifies Phase 5 content.")
 	var progression: Dictionary = catalog.get("progression", {})
-	_expect(int(progression.get("base_xp_to_level", 0)) > 0, "King leveling has a positive XP requirement.")
+	_expect(int(progression.get("base_xp_to_level", 0)) >= 60, "King leveling starts with a substantial XP requirement.")
+	_expect(int(progression.get("xp_growth_per_level", 0)) >= 30, "King leveling becomes meaningfully harder at each level.")
 	_expect(int(progression.get("choice_count", 0)) == 3, "Each King level offers three seeded skill choices.")
 	var skills: Array = catalog.get("skills", [])
 	_expect(skills.size() >= 6, "King has passive, projectile, and area skill choices.")
@@ -1150,6 +1154,7 @@ func _test_goblin_attack_combat() -> void:
 		return
 	var king_data: Dictionary = king_records[0]
 	var enemy_data: Dictionary = enemy_records[0].duplicate(true)
+	enemy_data["contact_damage"] = _load_json("res://data/enemies/goblin_threat_progression.json").get("contact_damage", {}).duplicate(true)
 	var rapid_attack: Dictionary = enemy_data.get("attack", {}).duplicate(true)
 	rapid_attack["attacks_per_second"] = 50.0
 	enemy_data["attack"] = rapid_attack
@@ -1172,6 +1177,13 @@ func _test_goblin_attack_combat() -> void:
 	await physics_frame
 	_expect(goblin.is_engaged(), "A Goblin immediately retaliates after the King attacks it outside hatred range.")
 	_expect(goblin.global_position.distance_to(king.global_position) < idle_position.distance_to(king.global_position), "An alerted Goblin starts pursuing the King.")
+	goblin.global_position = Vector2(goblin.collision_radius + king.collision_radius, 0.0)
+	var health_before_contact := king.health.current_health
+	goblin.call("_try_contact_damage")
+	_expect(king.health.current_health < health_before_contact, "Physical contact with a Goblin damages the King through the shared resolver.")
+	var health_after_contact := king.health.current_health
+	goblin.call("_try_contact_damage")
+	_expect(is_equal_approx(king.health.current_health, health_after_contact), "Goblin contact damage respects its independent cooldown instead of applying every frame.")
 	goblin.global_position = Vector2(65.0, 0.0)
 	for _frame in 5:
 		await physics_frame
@@ -1813,6 +1825,17 @@ func _test_endless_respawn_and_gold_pickup() -> void:
 	arena_army.set_combat_enabled(false)
 	_expect(arena_army.get_living_unit_count() == 1, "Combat HUD summons a Spearman into the battle-owned army.")
 	_expect(reward_grant_service.get_run_gold() == 0, "HUD summoning spends the configured run Gold cost.")
+	var summoned_units := arena_army.get_units()
+	if not summoned_units.is_empty():
+		var collecting_soldier := summoned_units[0]
+		collecting_soldier.global_position = arena_king.global_position + Vector2(320.0, 0.0)
+		var soldier_gold := (load("res://scenes/gameplay/run_gold_pickup.tscn") as PackedScene).instantiate() as RunGoldPickup
+		soldier_gold.configure("soldier_collection_test", 4)
+		soldier_gold.global_position = collecting_soldier.global_position
+		arena.add_child(soldier_gold)
+		for _frame in 3:
+			await physics_frame
+		_expect(reward_grant_service.get_run_gold() == 4, "A living summoned soldier collects run Gold through the centralized reward service.")
 	for _frame in 110:
 		await physics_frame
 		for child in arena.get_children():

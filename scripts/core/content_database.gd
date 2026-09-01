@@ -349,6 +349,7 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 func _index_goblin_threat(source: Dictionary, id_pattern: RegEx) -> bool:
 	var budget: Dictionary = source.get("budget", {})
 	var scaling: Dictionary = source.get("scaling", {})
+	var contact_damage: Dictionary = source.get("contact_damage", {})
 	var caps: Dictionary = source.get("platform_caps", {})
 	var difficulty: Dictionary = source.get("difficulty", {})
 	var phases_value: Variant = source.get("phases", null)
@@ -362,6 +363,13 @@ func _index_goblin_threat(source: Dictionary, id_pattern: RegEx) -> bool:
 			return false
 	if float(scaling.get("speed_cap", 0.0)) < 1.0:
 		push_error("Goblin speed scaling cap is invalid.")
+		return false
+	for contact_key in ["damage_multiplier", "cooldown", "minimum_damage"]:
+		if float(contact_damage.get(contact_key, 0.0)) <= 0.0:
+			push_error("Goblin contact damage value is invalid: %s" % contact_key)
+			return false
+	if float(contact_damage.get("collision_margin", -1.0)) < 0.0:
+		push_error("Goblin contact collision margin is invalid.")
 		return false
 	for platform_id in ["web", "youtube_playables", "android", "ios", "desktop"]:
 		var platform_cap: Dictionary = caps.get(platform_id, {})

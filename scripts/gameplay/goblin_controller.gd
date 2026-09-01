@@ -28,12 +28,17 @@ var projectile_speed := 0.0
 var projectile_radius := 0.0
 var projectile_lifetime := 0.0
 var projectile_visual_kind := "arrow"
+var contact_damage_multiplier := 0.35
+var contact_damage_cooldown := 0.75
+var contact_minimum_damage := 1.0
+var contact_collision_margin := 2.0
 var ability_config: Dictionary = {}
 var runtime_modifiers: Dictionary = {}
 
 var _primary_target: Node2D
 var _target: Node2D
 var _cooldown_remaining := 0.0
+var _contact_cooldown_remaining := 0.0
 var _combat_enabled := true
 var _engaged := false
 var _windup_remaining := 0.0
@@ -61,6 +66,9 @@ func _physics_process(delta: float) -> void:
 	_update_temporary_haste(delta)
 	_update_special_ability(delta)
 	_cooldown_remaining = maxf(_cooldown_remaining - delta, 0.0)
+	_contact_cooldown_remaining = maxf(_contact_cooldown_remaining - delta, 0.0)
+	if _combat_enabled and is_combat_alive():
+		_try_contact_damage()
 	if _windup_remaining > 0.0:
 		_windup_remaining = maxf(_windup_remaining - delta, 0.0)
 		_stop_moving()
@@ -108,6 +116,7 @@ func configure(
 	var defense_data: Dictionary = config.get("defense", {})
 	var movement_data: Dictionary = config.get("movement", {})
 	var attack_data: Dictionary = config.get("attack", {})
+	var contact_data: Dictionary = config.get("contact_damage", {})
 	var presentation_data: Dictionary = config.get("presentation", {}).duplicate(true)
 	ability_config = config.get("ability", {}).duplicate(true)
 	runtime_modifiers = new_runtime_modifiers.duplicate(true)
@@ -136,6 +145,10 @@ func configure(
 	projectile_radius = maxf(float(projectile_data.get("radius", 0.0)), 0.0)
 	projectile_lifetime = maxf(float(projectile_data.get("lifetime", 0.0)), 0.0)
 	projectile_visual_kind = str(projectile_data.get("visual_kind", "arrow"))
+	contact_damage_multiplier = maxf(float(contact_data.get("damage_multiplier", contact_damage_multiplier)), 0.01)
+	contact_damage_cooldown = maxf(float(contact_data.get("cooldown", contact_damage_cooldown)), 0.05)
+	contact_minimum_damage = maxf(float(contact_data.get("minimum_damage", contact_minimum_damage)), 0.01)
+	contact_collision_margin = maxf(float(contact_data.get("collision_margin", contact_collision_margin)), 0.0)
 	presentation_data["elite_rank"] = maxi(int(runtime_modifiers.get("elite_rank", 0)), 0)
 	visual.configure(presentation_data)
 	attack_visual.configure(attack_style, damage_type)
@@ -234,6 +247,34 @@ func _try_attack(direction: Vector2, target_distance: float) -> void:
 			"attack_style": attack_style,
 		},
 		target_defense
+	)
+
+
+func _try_contact_damage() -> void:
+	if _contact_cooldown_remaining > 0.0 or not _primary_target is KingController:
+		return
+	var king := _primary_target as KingController
+	if not _is_target_alive(king):
+		return
+	var contact_distance := collision_radius + king.collision_radius + contact_collision_margin
+	if global_position.distance_squared_to(king.global_position) > contact_distance * contact_distance:
+		return
+	_contact_cooldown_remaining = contact_damage_cooldown
+	_set_engaged(true)
+	var direction := global_position.direction_to(king.global_position)
+	visual.play_attack(direction if not direction.is_zero_approx() else Vector2.LEFT)
+	DamageResolver.apply_damage(
+		king.health,
+		maxf(attack_damage * contact_damage_multiplier, contact_minimum_damage),
+		{
+			"source_kind": "enemy_contact",
+			"source_id": str(enemy_id),
+			"source_instance_id": instance_id,
+			"target_kind": "king",
+			"damage_type": damage_type,
+			"attack_style": "contact",
+		},
+		king.defense
 	)
 
 

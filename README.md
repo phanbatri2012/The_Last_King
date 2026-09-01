@@ -22,12 +22,13 @@ This repository contains the technical foundation and the first playable combat 
 - per-archetype health, armor, magic resistance, movement speed, hatred range, attack range, damage, and attack speed;
 - melee/ranged and physical/magic enemy combat through the shared damage resolver;
 - idle-until-alerted Goblins that engage only inside their hatred range or after the King attacks them;
+- King damage on physical Goblin contact, resolved through the shared damage pipeline with a separate data-driven cooldown;
 - a seeded 15-second Threat Budget Director with eleven timed phases, role unlocks, special/support budget limits, quadratic HP/damage escalation, capped speed, and platform-specific soft/hard caps;
 - hatred ranges doubled for the four existing Goblin archetypes, with role-specific hatred ranges for every new archetype;
 - quality/elite escalation when actor counts reach the platform soft cap, so Endless threat continues without requiring unbounded actor counts;
 - nearest-target selection and automatic King attacks whose melee arcs and ranged projectiles pierce every target along their path;
 - one shared damage resolver for King and enemy damage;
-- bright run Gold drops, collection through one reward service, and a yellow HUD counter;
+- bright run Gold drops collectable by the King or any living summoned soldier through one reward service, and a yellow HUD counter;
 - centralized run Gold spending with no mixing into persistent account Gold;
 - seven data-driven Đại Việt units: Spearman, Crossbowman, Royal Guard, Ambush Archer, Raider, Elephant Guard, and Royal War Elephant;
 - distinct health, defense, speed, damage, reach, attack rate, summon cost, capacity cost, formation role, and placeholder silhouette for every unit;
@@ -40,7 +41,7 @@ This repository contains the technical foundation and the first playable combat 
 - rare seeded green Healing Orb drops that restore a data-driven percentage of King maximum HP, then heal wounded soldiers when the King is full;
 - mouse-hold and touch-hold movement across the battlefield alongside WASD and the virtual joystick;
 - Continue snapshots for uncollected Healing Orbs and deterministic healing-drop RNG;
-- XP rewards for every Goblin archetype, increasing per-level XP thresholds, and three seeded skill choices whenever the King levels up;
+- XP rewards for every Goblin archetype, a slower 60-XP opening threshold that grows by 30 each level, and three seeded skill choices whenever the King levels up;
 - six three-rank King skills covering damage, attack/movement speed, reach, health/defense, unlimited-piercing royal waves, and periodic area damage, now with distinct upgrade/cast effects;
 - a battle-pausing bilingual level-up overlay that shows each skill's current/next rank and localized description, plus Continue snapshots for XP, Run Level, skill ranks, skill-choice RNG, and army upgrades;
 - an uncluttered summon HUD with unit-upgrade details moved into an on-demand, battle-pausing overlay opened by click/touch or the `U` key;

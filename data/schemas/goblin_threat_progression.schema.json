@@ -2,12 +2,23 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "The Last King Goblin threat and boss progression",
   "type": "object",
-  "required": ["schema_version", "content_version", "budget", "scaling", "platform_caps", "difficulty", "phases", "bosses", "ascendant"],
+  "required": ["schema_version", "content_version", "budget", "scaling", "contact_damage", "platform_caps", "difficulty", "phases", "bosses", "ascendant"],
   "properties": {
     "schema_version": {"type": "integer", "minimum": 1},
     "content_version": {"type": "string", "minLength": 1},
     "budget": {"type": "object"},
     "scaling": {"type": "object"},
+    "contact_damage": {
+      "type": "object",
+      "required": ["damage_multiplier", "cooldown", "minimum_damage", "collision_margin"],
+      "properties": {
+        "damage_multiplier": {"type": "number", "exclusiveMinimum": 0},
+        "cooldown": {"type": "number", "exclusiveMinimum": 0},
+        "minimum_damage": {"type": "number", "exclusiveMinimum": 0},
+        "collision_margin": {"type": "number", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
     "platform_caps": {"type": "object", "required": ["web", "youtube_playables", "android", "ios", "desktop"]},
     "difficulty": {"type": "object", "required": ["normal", "hard", "nightmare", "hell"]},
     "phases": {

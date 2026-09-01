@@ -54,10 +54,25 @@ func _draw() -> void:
 
 
 func _on_body_entered(body: Node2D) -> void:
-	if _collected or not body is KingController:
+	if _collected:
 		return
-	var collecting_king := body as KingController
-	if not collecting_king.is_combat_alive():
+	var collector_kind := ""
+	var collector_id := ""
+	var collector_instance_id := ""
+	if body is KingController:
+		var collecting_king := body as KingController
+		if not collecting_king.is_combat_alive():
+			return
+		collector_kind = "king"
+		collector_id = str(collecting_king.king_id)
+	elif body is SummonedUnitController:
+		var collecting_unit := body as SummonedUnitController
+		if not collecting_unit.is_combat_alive():
+			return
+		collector_kind = "unit"
+		collector_id = str(collecting_unit.unit_id)
+		collector_instance_id = collecting_unit.instance_id
+	else:
 		return
 	var reward_grant_service := get_node_or_null("/root/RewardGrantService")
 	if reward_grant_service == null:
@@ -68,6 +83,9 @@ func _on_body_entered(body: Node2D) -> void:
 			"source_kind": "pickup",
 			"source_id": pickup_id,
 			"reward_kind": "run_gold",
+			"collector_kind": collector_kind,
+			"collector_id": collector_id,
+			"collector_instance_id": collector_instance_id,
 		}
 	))
 	if granted <= 0:

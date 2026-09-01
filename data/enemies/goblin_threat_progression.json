@@ -1,8 +1,9 @@
 {
   "schema_version": 1,
-  "content_version": "phase6.0",
+  "content_version": "phase6.1",
   "budget": {"interval_seconds":15.0,"base":18.0,"linear_per_minute":0.2,"quadratic_per_minute":0.012,"special_budget_ratio_max":0.3},
   "scaling": {"hp_linear":0.14,"hp_quadratic":0.018,"damage_linear":0.1,"damage_quadratic":0.009,"speed_linear":0.012,"speed_cap":1.35},
+  "contact_damage": {"damage_multiplier":0.35,"cooldown":0.75,"minimum_damage":1.0,"collision_margin":2.0},
   "platform_caps": {"web":{"soft":180,"hard":220},"youtube_playables":{"soft":180,"hard":220},"android":{"soft":220,"hard":280},"ios":{"soft":220,"hard":280},"desktop":{"soft":300,"hard":400}},
   "difficulty": {
     "normal":{"enemy_hp":1.0,"enemy_damage":1.0,"threat_budget":1.0,"telegraph_multiplier":1.0,"enhanced_hp_threshold":0.5},

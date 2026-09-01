@@ -256,6 +256,7 @@ func _load_enemy_configs() -> void:
 		var enemy_config := ContentDatabase.get_enemy(StringName(enemy_id))
 		if enemy_config.is_empty():
 			continue
+		enemy_config["contact_damage"] = _threat_config.get("contact_damage", {}).duplicate(true)
 		_enemy_configs[enemy_id] = enemy_config
 		var spawn_data: Dictionary = enemy_config.get("spawn", {})
 		spawn_roster.append({
