@@ -9,6 +9,10 @@ var game_clock := GameClock.new()
 var _initialized := false
 
 
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+
 func initialize() -> bool:
 	if _initialized:
 		return true
@@ -24,6 +28,7 @@ func has_active_session() -> bool:
 
 
 func start_session(king_id: StringName, faction_id: StringName, seed: int) -> BattleSession:
+	pause_manager.clear_pause(PauseManager.LEVEL_UP)
 	active_session = BattleSession.new()
 	active_session.create(king_id, faction_id, seed)
 	game_clock.reset()
@@ -36,6 +41,7 @@ func end_session(result: Dictionary) -> void:
 	if active_session == null:
 		return
 	var ended_session_id := active_session.session_id
+	pause_manager.clear_pause(PauseManager.LEVEL_UP)
 	active_session = null
 	game_clock.reset()
 	session_ended.emit(result)
@@ -128,8 +134,41 @@ func get_army_state() -> Array[Dictionary]:
 	return active_session.army.duplicate(true)
 
 
+func set_army_upgrade_state(upgrade_levels: Dictionary) -> void:
+	if active_session == null:
+		return
+	active_session.upgrades["army"] = upgrade_levels.duplicate(true)
+
+
+func get_army_upgrade_state() -> Dictionary:
+	if active_session == null:
+		return {}
+	var value: Variant = active_session.upgrades.get("army", {})
+	return value.duplicate(true) if value is Dictionary else {}
+
+
+func set_skill_state(skill_levels: Dictionary, rng_state: int) -> void:
+	if active_session == null:
+		return
+	active_session.skills = skill_levels.duplicate(true)
+	active_session.rng_state["king_progression"] = rng_state
+
+
+func get_skill_state() -> Dictionary:
+	if active_session == null:
+		return {}
+	return active_session.skills.duplicate(true)
+
+
+func get_progression_rng_state() -> int:
+	if active_session == null:
+		return 0
+	return int(active_session.rng_state.get("king_progression", 0))
+
+
 func _on_pause_state_changed(paused: bool) -> void:
 	game_clock.paused = paused
+	get_tree().paused = paused
 	if active_session != null:
 		active_session.pause_state = {"reasons": pause_manager.get_reasons()}
 

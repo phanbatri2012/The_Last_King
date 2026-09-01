@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "content_version": "phase4.1",
+  "content_version": "phase5.0",
   "enemies": [
     {
       "id": "goblin",
@@ -21,6 +21,7 @@
       "spawn": {"weight": 42.0},
       "rewards": {
         "run_gold": 3,
+        "run_xp": 5,
         "healing_orb": {"chance": 0.06, "max_health_fraction": 0.12}
       }
     },
@@ -43,6 +44,7 @@
       "spawn": {"weight": 18.0},
       "rewards": {
         "run_gold": 6,
+        "run_xp": 10,
         "healing_orb": {"chance": 0.15, "max_health_fraction": 0.18}
       }
     },
@@ -72,6 +74,7 @@
       "spawn": {"weight": 25.0},
       "rewards": {
         "run_gold": 4,
+        "run_xp": 6,
         "healing_orb": {"chance": 0.09, "max_health_fraction": 0.14}
       }
     },
@@ -101,6 +104,7 @@
       "spawn": {"weight": 15.0},
       "rewards": {
         "run_gold": 5,
+        "run_xp": 8,
         "healing_orb": {"chance": 0.1, "max_health_fraction": 0.15}
       }
     }

@@ -8,6 +8,7 @@ const PLATFORM := &"platform"
 const BACKGROUND := &"background"
 const AD := &"ad"
 const SYSTEM := &"system"
+const LEVEL_UP := &"level_up"
 
 var _reasons: Dictionary = {}
 
@@ -36,3 +37,10 @@ func get_reasons() -> PackedStringArray:
 		reasons.append(str(reason))
 	reasons.sort()
 	return reasons
+
+
+func clear_all() -> void:
+	var was_paused := is_paused()
+	_reasons.clear()
+	if was_paused:
+		pause_state_changed.emit(false)

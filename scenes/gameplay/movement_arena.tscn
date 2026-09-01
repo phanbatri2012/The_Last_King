@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scenes/gameplay/movement_arena.gd" id="1_arena"]
 [ext_resource type="Script" path="res://scripts/gameplay/movement_arena_backdrop.gd" id="2_backdrop"]
@@ -9,6 +9,8 @@
 [ext_resource type="Script" path="res://scripts/battle/combat_drop_director.gd" id="7_drop"]
 [ext_resource type="Script" path="res://scripts/combat/enemy_projectile_pool.gd" id="8_projectiles"]
 [ext_resource type="Script" path="res://scripts/combat/ally_projectile_pool.gd" id="9_ally_projectiles"]
+[ext_resource type="Script" path="res://scripts/progression/king_progression_controller.gd" id="10_progression"]
+[ext_resource type="Script" path="res://scripts/progression/king_skill_runtime.gd" id="11_skill_runtime"]
 
 [sub_resource type="StyleBoxFlat" id="StyleHudPanel"]
 bg_color = Color(0.025, 0.034, 0.045, 0.92)
@@ -113,6 +115,41 @@ corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
+[sub_resource type="StyleBoxFlat" id="StyleXpFill"]
+bg_color = Color(0.58, 0.28, 0.94, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleLevelPanel"]
+bg_color = Color(0.025, 0.035, 0.06, 0.98)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.78, 0.56, 0.95, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+content_margin_left = 34.0
+content_margin_top = 28.0
+content_margin_right = 34.0
+content_margin_bottom = 30.0
+
+[sub_resource type="StyleBoxFlat" id="StyleSkillCard"]
+bg_color = Color(0.12, 0.08, 0.2, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.84, 0.65, 0.98, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
 [node name="MovementArena" type="Node2D"]
 script = ExtResource("1_arena")
 
@@ -136,6 +173,14 @@ script = ExtResource("8_projectiles")
 [node name="AllyProjectilePool" type="Node2D" parent="."]
 unique_name_in_owner = true
 script = ExtResource("9_ally_projectiles")
+
+[node name="KingSkillRuntime" type="Node2D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("11_skill_runtime")
+
+[node name="KingProgressionController" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("10_progression")
 
 [node name="King" parent="." instance=ExtResource("3_king")]
 unique_name_in_owner = true
@@ -162,7 +207,7 @@ anchor_right = 1.0
 offset_left = 26.0
 offset_top = 22.0
 offset_right = -26.0
-offset_bottom = 174.0
+offset_bottom = 200.0
 grow_horizontal = 2
 
 [node name="TopPanel" type="PanelContainer" parent="HudLayer/Hud/TopMargin"]
@@ -220,6 +265,22 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.57, 0.63, 0.69, 1)
 text = "phase1.session_time"
 horizontal_alignment = 2
+
+[node name="LevelXpLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.83, 0.67, 1, 1)
+text = "phase5.level_xp"
+horizontal_alignment = 2
+
+[node name="XpBar" type="ProgressBar" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 9)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleHealthBackground")
+theme_override_styles/fill = SubResource("StyleXpFill")
+value = 0.0
+show_percentage = false
 
 [node name="KingHealthLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
 unique_name_in_owner = true
@@ -284,7 +345,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -470.0
-offset_top = -410.0
+offset_top = -520.0
 offset_right = -26.0
 offset_bottom = -26.0
 grow_horizontal = 0
@@ -324,11 +385,35 @@ columns = 2
 [node name="SummonButtonTemplate" type="Button" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/SummonGrid"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(190, 66)
+custom_minimum_size = Vector2(190, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 13
 theme_override_styles/normal = SubResource("StyleSummonButton")
 text = "phase4.summon_unit"
+
+[node name="UpgradeRosterLabel" type="Label" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.66, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "phase5.upgrade_roster"
+horizontal_alignment = 1
+
+[node name="UpgradeGrid" type="GridContainer" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 6
+columns = 2
+
+[node name="UpgradeButtonTemplate" type="Button" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/UpgradeGrid"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(190, 34)
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+theme_override_styles/normal = SubResource("StyleSummonButton")
+text = "phase5.upgrade_unit"
 
 [node name="HintMargin" type="MarginContainer" parent="HudLayer/Hud"]
 layout_mode = 1
@@ -449,3 +534,90 @@ size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 17
 theme_override_styles/normal = SubResource("StyleBackButton")
 text = "phase2.back_to_menu"
+
+[node name="LevelUpOverlay" type="Control" parent="HudLayer"]
+process_mode = 3
+unique_name_in_owner = true
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Shade" type="ColorRect" parent="HudLayer/LevelUpOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+color = Color(0.015, 0.008, 0.035, 0.82)
+
+[node name="Center" type="CenterContainer" parent="HudLayer/LevelUpOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="HudLayer/LevelUpOverlay/Center"]
+custom_minimum_size = Vector2(1080, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleLevelPanel")
+
+[node name="Content" type="VBoxContainer" parent="HudLayer/LevelUpOverlay/Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="LevelUpTitleLabel" type="Label" parent="HudLayer/LevelUpOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.76, 1, 1)
+theme_override_font_sizes/font_size = 34
+text = "phase5.level_up_title"
+horizontal_alignment = 1
+
+[node name="LevelUpHintLabel" type="Label" parent="HudLayer/LevelUpOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.75, 0.84, 1)
+theme_override_font_sizes/font_size = 17
+text = "phase5.level_up_hint"
+horizontal_alignment = 1
+
+[node name="SkillCards" type="HBoxContainer" parent="HudLayer/LevelUpOverlay/Center/Panel/Content"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="SkillCard1" type="Button" parent="HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(315, 220)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+theme_override_styles/normal = SubResource("StyleSkillCard")
+text = "Skill 1"
+autowrap_mode = 2
+
+[node name="SkillCard2" type="Button" parent="HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(315, 220)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+theme_override_styles/normal = SubResource("StyleSkillCard")
+text = "Skill 2"
+autowrap_mode = 2
+
+[node name="SkillCard3" type="Button" parent="HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(315, 220)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+theme_override_styles/normal = SubResource("StyleSkillCard")
+text = "Skill 3"
+autowrap_mode = 2

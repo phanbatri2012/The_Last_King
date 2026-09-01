@@ -3,11 +3,11 @@ extends Node
 
 signal spawn_requested(instance_id: String, enemy_id: StringName, world_position: Vector2)
 
-@export_range(1, 100, 1) var base_population := 9
-@export_range(1, 100, 1) var maximum_population := 15
-@export_range(1.0, 600.0, 1.0) var population_growth_interval := 45.0
+@export_range(1, 100, 1) var base_population := 14
+@export_range(1, 100, 1) var maximum_population := 24
+@export_range(1.0, 600.0, 1.0) var population_growth_interval := 35.0
 @export_range(0.0, 30.0, 0.05) var respawn_delay := 1.0
-@export_range(0.0, 5.0, 0.05) var spawn_stagger := 0.14
+@export_range(0.0, 5.0, 0.05) var spawn_stagger := 0.11
 @export_range(1.0, 5000.0, 1.0) var minimum_spawn_radius := 480.0
 @export_range(1.0, 5000.0, 1.0) var maximum_spawn_radius := 900.0
 

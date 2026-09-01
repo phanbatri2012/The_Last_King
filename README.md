@@ -4,7 +4,7 @@ Top-down historical-fantasy survivor with army building, roguelite runs, and per
 
 Rise as a legendary ruler, survive enemy hordes, command ancient armies, collect gold, unlock skills, summon iconic warriors, and defeat colossal bosses.
 
-## Phase 4C Dai Viet roster status
+## Phase 5 King progression status
 
 This repository contains the technical foundation and the first playable combat slice:
 
@@ -22,26 +22,30 @@ This repository contains the technical foundation and the first playable combat 
 - per-archetype health, armor, magic resistance, movement speed, hatred range, attack range, damage, and attack speed;
 - melee/ranged and physical/magic enemy combat through the shared damage resolver;
 - idle-until-alerted Goblins that engage only inside their hatred range or after the King attacks them;
-- unlimited lifetime spawning with a moderate active density that grows gradually from 9 to a hard cap of 15;
-- nearest-target selection and automatic King attacks;
+- unlimited lifetime spawning with a denser active population that grows gradually from 14 to a hard cap of 24;
+- nearest-target selection and automatic King attacks whose melee arcs and ranged projectiles pierce every target along their path;
 - one shared damage resolver for King and enemy damage;
 - bright run Gold drops, collection through one reward service, and a yellow HUD counter;
 - centralized run Gold spending with no mixing into persistent account Gold;
 - seven data-driven Đại Việt units: Spearman, Crossbowman, Royal Guard, Ambush Archer, Raider, Elephant Guard, and Royal War Elephant;
 - distinct health, defense, speed, damage, reach, attack rate, summon cost, capacity cost, formation role, and placeholder silhouette for every unit;
 - real pooled allied arrows and crossbow bolts with travel time and collision;
-- a two-column touch/click roster plus PC/Web number-key hotkeys `1–7` (`Q` remains the Spearman shortcut) and a 20-point King Army Capacity;
+- a two-column touch/click roster plus PC/Web number-key hotkeys `1–7` (`Q` remains the Spearman shortcut), with no fixed living-soldier limit;
+- five run-Gold upgrade levels for every Đại Việt unit type, applied immediately to existing soldiers and inherited by future summons;
 - allied health, armor, formation following, automatic targeting, attacks, death events, and blue health bars;
 - Goblin retaliation against allied attackers and Continue snapshots for the living army;
 - real pooled Goblin arrows and magic Orbs with local charge indicators, no dashed aiming path, travel time, collision, and dodge windows;
 - rare seeded green Healing Orb drops that restore a data-driven percentage of King maximum HP, then heal wounded soldiers when the King is full;
 - mouse-hold and touch-hold movement across the battlefield alongside WASD and the virtual joystick;
 - Continue snapshots for uncollected Healing Orbs and deterministic healing-drop RNG;
+- XP rewards for every Goblin archetype, increasing per-level XP thresholds, and three seeded skill choices whenever the King levels up;
+- six three-rank King skills covering damage, attack/movement speed, reach, health/defense, unlimited-piercing royal waves, and periodic area damage;
+- a battle-pausing bilingual level-up overlay plus Continue snapshots for XP, Run Level, skill ranks, skill-choice RNG, and army upgrades;
 - localized combat HUD, defeat/retry flow, desktop Exit Game button, and in-memory Continue state;
 - desktop and web export presets;
 - headless smoke tests.
 
-XP, Run Level, level-up cards, unit upgrades, and polished historical art remain later slices.
+Persistent account progression, bosses, manual skill activation, and polished historical art remain later slices.
 
 ## Toolchain
 

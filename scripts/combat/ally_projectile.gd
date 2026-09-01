@@ -12,11 +12,15 @@ var damage := 1.0
 var speed := 600.0
 var radius := 4.0
 var lifetime := 1.0
+var piercing := false
+var maximum_hits := 1
 
 var _direction := Vector2.RIGHT
 var _remaining_lifetime := 0.0
 var _context: Dictionary = {}
 var _active := false
+var _hit_instance_ids: Dictionary = {}
+var _hit_count := 0
 
 
 func _ready() -> void:
@@ -32,11 +36,15 @@ func activate(request: Dictionary) -> void:
 	speed = maxf(float(request.get("speed", 600.0)), 1.0)
 	radius = maxf(float(request.get("radius", 4.0)), 1.0)
 	lifetime = maxf(float(request.get("lifetime", 1.0)), 0.05)
+	piercing = bool(request.get("piercing", false))
+	maximum_hits = maxi(int(request.get("maximum_hits", 0 if piercing else 1)), 0)
 	global_position = request.get("position", Vector2.ZERO)
 	var requested_direction: Vector2 = request.get("direction", Vector2.RIGHT)
 	_direction = requested_direction.normalized() if not requested_direction.is_zero_approx() else Vector2.RIGHT
 	_context = request.get("context", {}).duplicate(true)
 	_remaining_lifetime = lifetime
+	_hit_instance_ids.clear()
+	_hit_count = 0
 	_apply_radius()
 	_active = true
 	visible = true
@@ -73,6 +81,12 @@ func _draw() -> void:
 	if not _active:
 		return
 	var side := Vector2(-_direction.y, _direction.x)
+	if visual_kind == "royal_wave":
+		var wave_color := Color(1.0, 0.76, 0.2, 0.94)
+		draw_line(-_direction * 24.0, _direction * 20.0, wave_color, 7.0, true)
+		draw_arc(Vector2.ZERO, 20.0, _direction.angle() - 1.0, _direction.angle() + 1.0, 18, Color(wave_color, 0.72), 5.0, true)
+		draw_circle(Vector2.ZERO, radius * 1.7, Color(wave_color, 0.13))
+		return
 	var shaft_color := Color(0.62, 0.88, 1.0, 1.0) if visual_kind == "bolt" else Color(0.9, 0.84, 0.58, 1.0)
 	var shaft_start := -_direction * (12.0 if visual_kind == "bolt" else 16.0)
 	var shaft_end := _direction * 11.0
@@ -98,13 +112,19 @@ func _on_body_entered(body: Node2D) -> void:
 	var enemy := body as GoblinController
 	if not enemy.is_combat_alive():
 		return
+	var enemy_instance_id := enemy.get_instance_id()
+	if _hit_instance_ids.has(enemy_instance_id):
+		return
+	_hit_instance_ids[enemy_instance_id] = true
+	_hit_count += 1
 	var hit_context := _context.duplicate(true)
 	hit_context["projectile_id"] = projectile_id
 	hit_context["target_kind"] = "enemy"
 	hit_context["target_id"] = str(enemy.enemy_id)
 	hit_context["target_instance_id"] = enemy.instance_id
 	DamageResolver.apply_damage(enemy.health, damage, hit_context, enemy.defense)
-	_resolve()
+	if not piercing or (maximum_hits > 0 and _hit_count >= maximum_hits):
+		_resolve()
 
 
 func _resolve() -> void:

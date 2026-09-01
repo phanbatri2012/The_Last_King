@@ -27,9 +27,11 @@ var projectile_speed := 600.0
 var projectile_radius := 4.0
 var projectile_lifetime := 1.0
 var projectile_visual_kind := "arrow"
+var upgrade_level := 0
 
 var _king: KingController
 var _projectile_pool: AllyProjectilePool
+var _base_config: Dictionary = {}
 var _formation_offset := Vector2.ZERO
 var _current_target: GoblinController
 var _cooldown_remaining := 0.0
@@ -81,28 +83,24 @@ func configure(
 	new_instance_id: String,
 	host_king: KingController,
 	restored_health: float = -1.0,
-	projectile_pool: AllyProjectilePool = null
+	projectile_pool: AllyProjectilePool = null,
+	new_upgrade_level: int = 0
 ) -> void:
+	_base_config = config.duplicate(true)
 	unit_id = StringName(str(config.get("id", unit_id)))
 	instance_id = new_instance_id
 	name_key = str(config.get("name_key", name_key))
 	_king = host_king
 	_projectile_pool = projectile_pool
-	var health_data: Dictionary = config.get("health", {})
-	var defense_data: Dictionary = config.get("defense", {})
 	var movement_data: Dictionary = config.get("movement", {})
 	var attack_data: Dictionary = config.get("attack", {})
 	var summon_data: Dictionary = config.get("summon", {})
 	var presentation_data: Dictionary = config.get("presentation", {})
-	health.configure(float(health_data.get("max", health.max_health)), restored_health)
-	defense.configure(defense_data)
 	move_speed = float(movement_data.get("speed", move_speed))
 	collision_radius = float(movement_data.get("collision_radius", collision_radius))
-	attack_damage = float(attack_data.get("damage", attack_damage))
 	attack_range = float(attack_data.get("range", attack_range))
 	detection_range = float(attack_data.get("detection_range", detection_range))
 	leash_range = float(attack_data.get("leash_range", leash_range))
-	attacks_per_second = maxf(float(attack_data.get("attacks_per_second", attacks_per_second)), 0.01)
 	target_refresh_interval = maxf(float(attack_data.get("target_refresh", target_refresh_interval)), 0.01)
 	damage_type = str(attack_data.get("damage_type", damage_type))
 	attack_style = str(attack_data.get("attack_style", attack_style))
@@ -113,6 +111,7 @@ func configure(
 	projectile_visual_kind = str(projectile_data.get("visual_kind", projectile_visual_kind))
 	capacity_cost = maxi(int(summon_data.get("capacity_cost", capacity_cost)), 1)
 	visual.configure(presentation_data)
+	_apply_upgrade_stats(new_upgrade_level, restored_health)
 	_apply_collision_radius()
 	_apply_detection_range()
 
@@ -127,6 +126,26 @@ func get_formation_world_position() -> Vector2:
 
 func get_host_king() -> KingController:
 	return _king
+
+
+func apply_upgrade_level(new_upgrade_level: int) -> void:
+	if _base_config.is_empty() or new_upgrade_level <= upgrade_level:
+		return
+	var old_max_health := health.max_health
+	var old_current_health := health.current_health
+	var upgrade_data: Dictionary = _base_config.get("upgrade", {})
+	var max_level := maxi(int(upgrade_data.get("max_level", 1)), 1)
+	var safe_level := clampi(new_upgrade_level, 0, max_level)
+	var base_health := float(_base_config.get("health", {}).get("max", old_max_health))
+	var health_per_level := float(upgrade_data.get("health_per_level", 0.0))
+	var new_max_health := base_health * (1.0 + health_per_level * float(safe_level))
+	var restored_health := minf(old_current_health + maxf(new_max_health - old_max_health, 0.0), new_max_health)
+	_apply_upgrade_stats(safe_level, restored_health)
+	visual.play_upgrade(safe_level)
+
+
+func get_upgrade_level() -> int:
+	return upgrade_level
 
 
 func set_combat_enabled(enabled: bool) -> void:
@@ -146,7 +165,29 @@ func get_combat_snapshot() -> Dictionary:
 		"unit_id": str(unit_id),
 		"position": {"x": global_position.x, "y": global_position.y},
 		"health": health.current_health,
+		"upgrade_level": upgrade_level,
 	}
+
+
+func _apply_upgrade_stats(new_upgrade_level: int, restored_health: float) -> void:
+	var health_data: Dictionary = _base_config.get("health", {})
+	var defense_data: Dictionary = _base_config.get("defense", {})
+	var attack_data: Dictionary = _base_config.get("attack", {})
+	var upgrade_data: Dictionary = _base_config.get("upgrade", {})
+	var max_level := maxi(int(upgrade_data.get("max_level", 1)), 1)
+	upgrade_level = clampi(new_upgrade_level, 0, max_level)
+	var level_value := float(upgrade_level)
+	var health_multiplier := 1.0 + float(upgrade_data.get("health_per_level", 0.0)) * level_value
+	var damage_multiplier := 1.0 + float(upgrade_data.get("damage_per_level", 0.0)) * level_value
+	var attack_speed_multiplier := 1.0 + float(upgrade_data.get("attack_speed_per_level", 0.0)) * level_value
+	var defense_bonus := float(upgrade_data.get("defense_per_level", 0.0)) * level_value
+	health.configure(float(health_data.get("max", health.max_health)) * health_multiplier, restored_health)
+	defense.configure({
+		"armor": float(defense_data.get("armor", 0.0)) + defense_bonus,
+		"magic_resistance": float(defense_data.get("magic_resistance", 0.0)) + defense_bonus * 0.65,
+	})
+	attack_damage = float(attack_data.get("damage", attack_damage)) * damage_multiplier
+	attacks_per_second = maxf(float(attack_data.get("attacks_per_second", attacks_per_second)) * attack_speed_multiplier, 0.01)
 
 
 func _refresh_target(formation_position: Vector2) -> void:

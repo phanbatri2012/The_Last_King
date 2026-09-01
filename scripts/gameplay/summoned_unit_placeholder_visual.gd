@@ -11,6 +11,8 @@ var _attack_pulse := 0.0
 var _hurt_flash := 0.0
 var _heal_pulse := 0.0
 var _heal_amount := 0.0
+var _upgrade_pulse := 0.0
+var _upgrade_level := 0
 var _defeated := false
 var _body_color := Color(0.19, 0.37, 0.53, 1.0)
 var _accent_color := Color(0.88, 0.72, 0.28, 1.0)
@@ -26,6 +28,7 @@ func _process(delta: float) -> void:
 	_attack_pulse = maxf(_attack_pulse - delta * 5.5, 0.0)
 	_hurt_flash = maxf(_hurt_flash - delta * 4.5, 0.0)
 	_heal_pulse = maxf(_heal_pulse - delta * 1.45, 0.0)
+	_upgrade_pulse = maxf(_upgrade_pulse - delta * 1.2, 0.0)
 	queue_redraw()
 
 
@@ -64,6 +67,12 @@ func play_hurt() -> void:
 func play_heal(amount: float) -> void:
 	_heal_amount = maxf(amount, 0.0)
 	_heal_pulse = 1.0
+	queue_redraw()
+
+
+func play_upgrade(level: int) -> void:
+	_upgrade_level = maxi(level, 0)
+	_upgrade_pulse = 1.0
 	queue_redraw()
 
 
@@ -112,6 +121,11 @@ func _draw() -> void:
 				15,
 				heal_color
 			)
+		if _upgrade_pulse > 0.0:
+			var upgrade_progress := 1.0 - _upgrade_pulse
+			var upgrade_color := Color(1.0, 0.78, 0.18, _upgrade_pulse)
+			draw_arc(Vector2.ZERO, (36.0 + upgrade_progress * 22.0) * _visual_scale, 0.0, TAU, 32, upgrade_color, 4.0, true)
+			draw_string(ThemeDB.fallback_font, Vector2(-24.0, overhead_y - 8.0), "Lv.%d" % _upgrade_level, HORIZONTAL_ALIGNMENT_CENTER, 48.0, 15, upgrade_color)
 		var bar_width := 66.0 if _visual_kind in ["elephant_guard", "royal_war_elephant"] else 54.0
 		var bar_rect := Rect2(-bar_width * 0.5, overhead_y, bar_width, 7.0)
 		draw_rect(bar_rect, Color(0.04, 0.04, 0.05, 0.88), true)

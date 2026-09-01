@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "content_version": "phase4.2",
+  "content_version": "phase5.0",
   "units": [
     {
       "id": "dai_viet_spearman",
@@ -23,6 +23,7 @@
         "target_refresh": 0.16
       },
       "summon": {"run_gold_cost": 15, "capacity_cost": 2, "hotkey_slot": 1},
+      "upgrade": {"base_gold_cost": 30, "cost_growth": 1.7, "max_level": 5, "health_per_level": 0.16, "damage_per_level": 0.14, "defense_per_level": 2.0, "attack_speed_per_level": 0.07},
       "formation": {
         "role": "outer_ring",
         "base_radius": 155.0,
@@ -59,6 +60,7 @@
         "projectile": {"speed": 760.0, "radius": 4.0, "lifetime": 1.0, "visual_kind": "bolt"}
       },
       "summon": {"run_gold_cost": 18, "capacity_cost": 2, "hotkey_slot": 2},
+      "upgrade": {"base_gold_cost": 34, "cost_growth": 1.7, "max_level": 5, "health_per_level": 0.13, "damage_per_level": 0.17, "defense_per_level": 1.3, "attack_speed_per_level": 0.08},
       "formation": {"role": "ranged_ring", "base_radius": 130.0, "slots_per_ring": 10, "ring_spacing": 46.0, "angle_offset_degrees": -90.0},
       "presentation": {"visual_kind": "crossbowman", "body_color": "#274d72", "accent_color": "#d7a83d", "scale": 0.96}
     },
@@ -74,6 +76,7 @@
       "movement": {"speed": 255.0, "collision_radius": 20.0},
       "attack": {"damage": 32.0, "damage_type": "physical", "attack_style": "melee", "range": 78.0, "detection_range": 250.0, "leash_range": 300.0, "attacks_per_second": 0.82, "target_refresh": 0.16},
       "summon": {"run_gold_cost": 28, "capacity_cost": 3, "hotkey_slot": 3},
+      "upgrade": {"base_gold_cost": 48, "cost_growth": 1.75, "max_level": 5, "health_per_level": 0.2, "damage_per_level": 0.12, "defense_per_level": 3.0, "attack_speed_per_level": 0.05},
       "formation": {"role": "inner_guard", "base_radius": 88.0, "slots_per_ring": 6, "ring_spacing": 42.0, "angle_offset_degrees": -90.0},
       "presentation": {"visual_kind": "royal_guard", "body_color": "#233e5b", "accent_color": "#f0c34f", "scale": 1.08}
     },
@@ -99,6 +102,7 @@
         "projectile": {"speed": 680.0, "radius": 4.0, "lifetime": 1.15, "visual_kind": "arrow"}
       },
       "summon": {"run_gold_cost": 22, "capacity_cost": 2, "hotkey_slot": 4},
+      "upgrade": {"base_gold_cost": 38, "cost_growth": 1.7, "max_level": 5, "health_per_level": 0.12, "damage_per_level": 0.16, "defense_per_level": 1.2, "attack_speed_per_level": 0.1},
       "formation": {"role": "ranged_ring", "base_radius": 130.0, "slots_per_ring": 10, "ring_spacing": 46.0, "angle_offset_degrees": -90.0},
       "presentation": {"visual_kind": "ambush_archer", "body_color": "#315947", "accent_color": "#b7c85c", "scale": 0.94}
     },
@@ -114,6 +118,7 @@
       "movement": {"speed": 370.0, "collision_radius": 16.0},
       "attack": {"damage": 26.0, "damage_type": "physical", "attack_style": "melee", "range": 68.0, "detection_range": 330.0, "leash_range": 440.0, "attacks_per_second": 1.35, "target_refresh": 0.12},
       "summon": {"run_gold_cost": 20, "capacity_cost": 2, "hotkey_slot": 5},
+      "upgrade": {"base_gold_cost": 36, "cost_growth": 1.68, "max_level": 5, "health_per_level": 0.14, "damage_per_level": 0.14, "defense_per_level": 1.5, "attack_speed_per_level": 0.11},
       "formation": {"role": "mobile_wing", "base_radius": 210.0, "slots_per_ring": 8, "ring_spacing": 52.0, "angle_offset_degrees": -67.5},
       "presentation": {"visual_kind": "raider", "body_color": "#365f68", "accent_color": "#d58d3f", "scale": 0.98}
     },
@@ -129,6 +134,7 @@
       "movement": {"speed": 200.0, "collision_radius": 28.0},
       "attack": {"damage": 52.0, "damage_type": "physical", "attack_style": "melee", "range": 92.0, "detection_range": 280.0, "leash_range": 390.0, "attacks_per_second": 0.58, "target_refresh": 0.2},
       "summon": {"run_gold_cost": 45, "capacity_cost": 5, "hotkey_slot": 6},
+      "upgrade": {"base_gold_cost": 70, "cost_growth": 1.8, "max_level": 5, "health_per_level": 0.22, "damage_per_level": 0.15, "defense_per_level": 3.2, "attack_speed_per_level": 0.05},
       "formation": {"role": "heavy_vanguard", "base_radius": 185.0, "slots_per_ring": 6, "ring_spacing": 62.0, "angle_offset_degrees": -90.0},
       "presentation": {"visual_kind": "elephant_guard", "body_color": "#435966", "accent_color": "#d2a33e", "scale": 1.3}
     },
@@ -144,6 +150,7 @@
       "movement": {"speed": 180.0, "collision_radius": 34.0},
       "attack": {"damage": 78.0, "damage_type": "physical", "attack_style": "melee", "range": 112.0, "detection_range": 300.0, "leash_range": 430.0, "attacks_per_second": 0.46, "target_refresh": 0.22},
       "summon": {"run_gold_cost": 75, "capacity_cost": 8, "hotkey_slot": 7},
+      "upgrade": {"base_gold_cost": 120, "cost_growth": 1.85, "max_level": 5, "health_per_level": 0.25, "damage_per_level": 0.18, "defense_per_level": 4.0, "attack_speed_per_level": 0.04},
       "formation": {"role": "royal_heavy", "base_radius": 225.0, "slots_per_ring": 4, "ring_spacing": 74.0, "angle_offset_degrees": -45.0},
       "presentation": {"visual_kind": "royal_war_elephant", "body_color": "#394d5b", "accent_color": "#f0c64f", "scale": 1.55}
     }

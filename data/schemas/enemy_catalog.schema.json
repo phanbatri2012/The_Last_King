@@ -90,9 +90,10 @@
           },
           "rewards": {
             "type": "object",
-            "required": ["run_gold", "healing_orb"],
+            "required": ["run_gold", "run_xp", "healing_orb"],
             "properties": {
               "run_gold": {"type": "integer", "minimum": 1},
+              "run_xp": {"type": "integer", "minimum": 1},
               "healing_orb": {
                 "type": "object",
                 "required": ["chance", "max_health_fraction"],

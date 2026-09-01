@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "content_version": "phase5.0",
+  "progression": {
+    "base_xp_to_level": 24,
+    "xp_growth_per_level": 14,
+    "choice_count": 3
+  },
+  "skills": [
+    {
+      "id": "royal_might",
+      "name_key": "skill.royal_might.name",
+      "description_key": "skill.royal_might.description",
+      "effect_type": "royal_might",
+      "levels": [
+        {"damage_multiplier": 1.2},
+        {"damage_multiplier": 1.45},
+        {"damage_multiplier": 1.75}
+      ]
+    },
+    {
+      "id": "swift_command",
+      "name_key": "skill.swift_command.name",
+      "description_key": "skill.swift_command.description",
+      "effect_type": "swift_command",
+      "levels": [
+        {"attack_cooldown_multiplier": 0.88, "move_speed_multiplier": 1.08},
+        {"attack_cooldown_multiplier": 0.76, "move_speed_multiplier": 1.16},
+        {"attack_cooldown_multiplier": 0.64, "move_speed_multiplier": 1.25}
+      ]
+    },
+    {
+      "id": "sovereign_reach",
+      "name_key": "skill.sovereign_reach.name",
+      "description_key": "skill.sovereign_reach.description",
+      "effect_type": "sovereign_reach",
+      "levels": [
+        {"range_multiplier": 1.2, "slash_half_angle_degrees": 68.0},
+        {"range_multiplier": 1.42, "slash_half_angle_degrees": 78.0},
+        {"range_multiplier": 1.68, "slash_half_angle_degrees": 90.0}
+      ]
+    },
+    {
+      "id": "iron_will",
+      "name_key": "skill.iron_will.name",
+      "description_key": "skill.iron_will.description",
+      "effect_type": "iron_will",
+      "levels": [
+        {"max_health_bonus": 50.0, "armor_bonus": 3.0, "magic_resistance_bonus": 2.0},
+        {"max_health_bonus": 115.0, "armor_bonus": 7.0, "magic_resistance_bonus": 5.0},
+        {"max_health_bonus": 200.0, "armor_bonus": 12.0, "magic_resistance_bonus": 9.0}
+      ]
+    },
+    {
+      "id": "piercing_wave",
+      "name_key": "skill.piercing_wave.name",
+      "description_key": "skill.piercing_wave.description",
+      "effect_type": "piercing_wave",
+      "levels": [
+        {"projectile_count": 4, "cooldown": 6.0, "damage_multiplier": 0.7, "projectile_speed": 620.0, "projectile_lifetime": 1.25},
+        {"projectile_count": 6, "cooldown": 5.0, "damage_multiplier": 0.9, "projectile_speed": 680.0, "projectile_lifetime": 1.4},
+        {"projectile_count": 8, "cooldown": 4.0, "damage_multiplier": 1.15, "projectile_speed": 740.0, "projectile_lifetime": 1.55}
+      ]
+    },
+    {
+      "id": "dragon_aura",
+      "name_key": "skill.dragon_aura.name",
+      "description_key": "skill.dragon_aura.description",
+      "effect_type": "dragon_aura",
+      "levels": [
+        {"radius": 190.0, "cooldown": 5.5, "damage_multiplier": 0.5},
+        {"radius": 255.0, "cooldown": 4.7, "damage_multiplier": 0.72},
+        {"radius": 330.0, "cooldown": 4.0, "damage_multiplier": 1.0}
+      ]
+    }
+  ]
+}

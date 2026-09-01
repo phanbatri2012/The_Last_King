@@ -17,6 +17,10 @@ signal defeated(context: Dictionary)
 
 var king_id: StringName = &"tran_hung_dao"
 var weapon_archetype_id: StringName = &"sword"
+var _base_move_speed := 340.0
+var _base_max_health := 260.0
+var _base_armor := 0.0
+var _base_magic_resistance := 0.0
 var _virtual_direction := Vector2.ZERO
 var _pointer_direction := Vector2.ZERO
 var _keyboard_enabled := true
@@ -68,14 +72,18 @@ func configure(config: Dictionary) -> void:
 	var movement_value: Variant = config.get("movement", {})
 	if movement_value is Dictionary:
 		var movement: Dictionary = movement_value
-		move_speed = float(movement.get("speed", move_speed))
+		_base_move_speed = float(movement.get("speed", move_speed))
+		move_speed = _base_move_speed
 		collision_radius = float(movement.get("collision_radius", collision_radius))
 	var health_value: Variant = config.get("health", {})
 	if health_value is Dictionary:
-		health.configure(float(health_value.get("max", health.max_health)))
+		_base_max_health = float(health_value.get("max", health.max_health))
+		health.configure(_base_max_health)
 	var defense_value: Variant = config.get("defense", {})
 	if defense_value is Dictionary:
-		defense.configure(defense_value)
+		_base_armor = float(defense_value.get("armor", defense.armor))
+		_base_magic_resistance = float(defense_value.get("magic_resistance", defense.magic_resistance))
+		defense.configure({"armor": _base_armor, "magic_resistance": _base_magic_resistance})
 	var attack_value: Variant = config.get("attack", {})
 	if attack_value is Dictionary:
 		auto_attack.configure(attack_value, weapon_archetype)
@@ -127,6 +135,24 @@ func restore_health(current_health: float) -> void:
 		_keyboard_enabled = false
 		auto_attack.set_combat_enabled(false)
 		visual.set_defeated()
+
+
+func apply_skill_modifiers(
+	move_speed_multiplier: float,
+	max_health_bonus: float,
+	armor_bonus: float,
+	magic_resistance_bonus: float
+) -> void:
+	move_speed = _base_move_speed * maxf(move_speed_multiplier, 0.1)
+	var old_max_health := health.max_health
+	var old_current_health := health.current_health
+	var new_max_health := maxf(_base_max_health + max_health_bonus, 1.0)
+	var added_health := maxf(new_max_health - old_max_health, 0.0)
+	health.configure(new_max_health, minf(old_current_health + added_health, new_max_health))
+	defense.configure({
+		"armor": _base_armor + maxf(armor_bonus, 0.0),
+		"magic_resistance": _base_magic_resistance + maxf(magic_resistance_bonus, 0.0),
+	})
 
 
 func is_combat_alive() -> bool:

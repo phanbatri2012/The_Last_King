@@ -15,6 +15,15 @@ var target_refresh_interval := 0.12
 var attack_style := "melee"
 var damage_type := "physical"
 var weapon_archetype_id: StringName = &"sword"
+var slash_half_angle_degrees := 58.0
+
+var _base_attack_damage := 40.0
+var _base_attack_range := 225.0
+var _base_attack_cooldown := 0.55
+var _damage_multiplier := 1.0
+var _range_multiplier := 1.0
+var _cooldown_multiplier := 1.0
+var _projectile_pool: AllyProjectilePool
 
 var _host: KingController
 var _current_target: GoblinController
@@ -41,15 +50,36 @@ func _physics_process(delta: float) -> void:
 
 
 func configure(config: Dictionary, weapon_archetype: Dictionary = {}) -> void:
-	attack_damage = float(config.get("damage", attack_damage))
-	attack_range = float(config.get("range", attack_range))
-	attack_cooldown = float(config.get("cooldown", attack_cooldown))
+	_base_attack_damage = float(config.get("damage", _base_attack_damage))
+	_base_attack_range = float(config.get("range", _base_attack_range))
+	_base_attack_cooldown = float(config.get("cooldown", _base_attack_cooldown))
 	target_refresh_interval = float(config.get("target_refresh", target_refresh_interval))
 	weapon_archetype_id = StringName(str(weapon_archetype.get("id", weapon_archetype_id)))
 	attack_style = str(weapon_archetype.get("attack_style", attack_style))
 	damage_type = str(weapon_archetype.get("damage_type", damage_type))
 	strike_visual.configure(attack_style)
-	_apply_attack_range()
+	_recompute_modified_stats()
+
+
+func set_projectile_pool(projectile_pool: AllyProjectilePool) -> void:
+	_projectile_pool = projectile_pool
+
+
+func set_skill_modifiers(
+	damage_multiplier: float,
+	cooldown_multiplier: float,
+	range_multiplier: float,
+	new_slash_half_angle_degrees: float
+) -> void:
+	_damage_multiplier = maxf(damage_multiplier, 0.01)
+	_cooldown_multiplier = maxf(cooldown_multiplier, 0.05)
+	_range_multiplier = maxf(range_multiplier, 0.1)
+	slash_half_angle_degrees = clampf(new_slash_half_angle_degrees, 10.0, 180.0)
+	_recompute_modified_stats()
+
+
+func get_base_attack_damage() -> float:
+	return _base_attack_damage
 
 
 func set_combat_enabled(enabled: bool) -> void:
@@ -81,27 +111,87 @@ func _attack_current_target() -> void:
 	_cooldown_remaining = attack_cooldown
 	var direction := (_current_target.global_position - global_position).normalized()
 	_host.visual.play_attack(direction)
-	strike_visual.play(direction, global_position.distance_to(_current_target.global_position))
-	var result := DamageResolver.apply_damage(
-		_current_target.health,
-		attack_damage,
-		{
-			"source_kind": "king",
-			"source_team": "player",
-			"source_id": str(_host.king_id),
-			"source_node": _host,
-			"weapon_archetype_id": str(weapon_archetype_id),
-			"attack_style": attack_style,
-			"target_kind": "enemy",
-			"target_id": str(_current_target.enemy_id),
-			"target_instance_id": _current_target.instance_id,
+	strike_visual.play(direction, attack_range)
+	if attack_style == "ranged" and is_instance_valid(_projectile_pool):
+		_projectile_pool.request_projectile({
+			"projectile_id": "%s_piercing_shot" % str(_host.king_id),
+			"position": global_position + direction * (_host.collision_radius + 10.0),
+			"direction": direction,
+			"speed": 900.0,
+			"radius": 6.0,
+			"lifetime": attack_range / 900.0 + 0.3,
+			"visual_kind": "bolt" if weapon_archetype_id == &"crossbow" else "arrow",
+			"damage": attack_damage,
 			"damage_type": damage_type,
-		},
-		_current_target.defense
+			"piercing": true,
+			"maximum_hits": 0,
+			"context": _create_damage_context("ranged"),
+		})
+		return
+	var targets := _collect_path_targets(direction, attack_style == "melee")
+	for target in targets:
+		_damage_target(target)
+	_refresh_remaining = 0.0
+
+
+func _collect_path_targets(direction: Vector2, melee: bool) -> Array[GoblinController]:
+	var targets: Array[GoblinController] = []
+	var minimum_dot := cos(deg_to_rad(slash_half_angle_degrees))
+	for body in detection_area.get_overlapping_bodies():
+		var enemy := body as GoblinController
+		if not is_instance_valid(enemy) or not enemy.is_combat_alive():
+			continue
+		var offset := enemy.global_position - global_position
+		var distance := offset.length()
+		if distance > attack_range or distance <= 0.001:
+			continue
+		var forward_distance := direction.dot(offset)
+		if forward_distance < 0.0:
+			continue
+		if melee:
+			if direction.dot(offset / distance) < minimum_dot:
+				continue
+		else:
+			var perpendicular_distance := absf(Vector2(-direction.y, direction.x).dot(offset))
+			if perpendicular_distance > 34.0 + enemy.collision_radius:
+				continue
+		targets.append(enemy)
+	if is_instance_valid(_current_target) and not targets.has(_current_target):
+		targets.append(_current_target)
+	targets.sort_custom(func(left: GoblinController, right: GoblinController) -> bool:
+		return global_position.distance_squared_to(left.global_position) < global_position.distance_squared_to(right.global_position)
 	)
-	attack_performed.emit(_current_target, float(result.get("applied", 0.0)))
-	if bool(result.get("killed", false)):
-		_refresh_remaining = 0.0
+	return targets
+
+
+func _damage_target(target: GoblinController) -> void:
+	if not is_instance_valid(target) or not target.is_combat_alive():
+		return
+	var result := DamageResolver.apply_damage(
+		target.health,
+		attack_damage,
+		_create_damage_context(attack_style, target),
+		target.defense
+	)
+	attack_performed.emit(target, float(result.get("applied", 0.0)))
+
+
+func _create_damage_context(style: String, target: GoblinController = null) -> Dictionary:
+	var context := {
+		"source_kind": "king",
+		"source_team": "player",
+		"source_id": str(_host.king_id),
+		"source_node": _host,
+		"weapon_archetype_id": str(weapon_archetype_id),
+		"attack_style": style,
+		"target_kind": "enemy",
+		"damage_type": damage_type,
+		"piercing": true,
+	}
+	if is_instance_valid(target):
+		context["target_id"] = str(target.enemy_id)
+		context["target_instance_id"] = target.instance_id
+	return context
 
 
 func _is_target_valid(target: GoblinController) -> bool:
@@ -129,3 +219,10 @@ func _apply_attack_range() -> void:
 	var circle := detection_shape.shape as CircleShape2D
 	if circle != null:
 		circle.radius = maxf(attack_range, 1.0)
+
+
+func _recompute_modified_stats() -> void:
+	attack_damage = _base_attack_damage * _damage_multiplier
+	attack_range = _base_attack_range * _range_multiplier
+	attack_cooldown = maxf(_base_attack_cooldown * _cooldown_multiplier, 0.03)
+	_apply_attack_range()

@@ -2,6 +2,7 @@ extends Node
 
 signal run_gold_granted(amount: int, total: int, context: Dictionary)
 signal run_gold_spent(amount: int, total: int, context: Dictionary)
+signal run_xp_granted(amount: int, total: int, context: Dictionary)
 
 var _initialized := false
 
@@ -33,3 +34,17 @@ func get_run_gold() -> int:
 	if not GameSessionService.has_active_session():
 		return 0
 	return GameSessionService.active_session.run_gold
+
+
+func grant_run_xp(amount: int, context: Dictionary = {}) -> int:
+	if amount <= 0 or not GameSessionService.has_active_session():
+		return 0
+	GameSessionService.active_session.run_xp += amount
+	run_xp_granted.emit(amount, GameSessionService.active_session.run_xp, context.duplicate(true))
+	return amount
+
+
+func get_run_xp() -> int:
+	if not GameSessionService.has_active_session():
+		return 0
+	return GameSessionService.active_session.run_xp

@@ -5,16 +5,20 @@ const KING_CATALOG_PATH := "res://data/kings/kings.json"
 const ENEMY_CATALOG_PATH := "res://data/enemies/enemies.json"
 const WEAPON_ARCHETYPE_PATH := "res://data/combat/weapon_archetypes.json"
 const UNIT_CATALOG_PATH := "res://data/units/units.json"
+const KING_SKILL_CATALOG_PATH := "res://data/skills/king_skills.json"
 
 var factions: Dictionary = {}
 var kings: Dictionary = {}
 var enemies: Dictionary = {}
 var units: Dictionary = {}
 var weapon_archetypes: Dictionary = {}
+var king_skills: Dictionary = {}
+var king_progression: Dictionary = {}
 var content_version := ""
 var enemy_content_version := ""
 var weapon_content_version := ""
 var unit_content_version := ""
+var skill_content_version := ""
 var _initialized := false
 
 
@@ -27,6 +31,8 @@ func initialize() -> bool:
 	enemies.clear()
 	units.clear()
 	weapon_archetypes.clear()
+	king_skills.clear()
+	king_progression.clear()
 
 	var faction_source := _load_json(FACTION_ROSTER_PATH)
 	if faction_source.is_empty() or not faction_source.get("factions", null) is Array:
@@ -48,6 +54,10 @@ func initialize() -> bool:
 	if unit_source.is_empty() or not unit_source.get("units", null) is Array:
 		push_error("Unit catalog is missing or invalid.")
 		return false
+	var skill_source := _load_json(KING_SKILL_CATALOG_PATH)
+	if skill_source.is_empty() or not skill_source.get("skills", null) is Array or not skill_source.get("progression", null) is Dictionary:
+		push_error("King skill catalog is missing or invalid.")
+		return false
 
 	var id_pattern := RegEx.new()
 	id_pattern.compile("^[a-z0-9]+(?:_[a-z0-9]+)*$")
@@ -61,6 +71,8 @@ func initialize() -> bool:
 	if not _index_enemies(enemy_source["enemies"], id_pattern):
 		return false
 	if not _index_units(unit_source["units"], id_pattern):
+		return false
+	if not _index_king_skills(skill_source["skills"], skill_source["progression"], id_pattern):
 		return false
 
 	content_version = str(king_source.get("content_version", ""))
@@ -78,6 +90,10 @@ func initialize() -> bool:
 	unit_content_version = str(unit_source.get("content_version", ""))
 	if unit_content_version.is_empty():
 		push_error("Unit catalog content_version is missing.")
+		return false
+	skill_content_version = str(skill_source.get("content_version", ""))
+	if skill_content_version.is_empty():
+		push_error("King skill catalog content_version is missing.")
 		return false
 
 	_initialized = true
@@ -205,6 +221,9 @@ func _index_kings(records: Array, id_pattern: RegEx) -> bool:
 		if int(army_capacity.get("max", 0)) <= 0:
 			push_error("King army capacity must be positive: %s" % king_id)
 			return false
+		if not army_capacity.get("unlimited", null) is bool:
+			push_error("King unlimited summon policy is missing: %s" % king_id)
+			return false
 		for attack_key in ["damage", "range", "cooldown", "target_refresh"]:
 			if float(attack.get(attack_key, 0.0)) <= 0.0:
 				push_error("King attack value must be positive: %s.%s" % [king_id, attack_key])
@@ -289,6 +308,9 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 		if int(rewards.get("run_gold", 0)) <= 0:
 			push_error("Enemy run Gold reward must be positive: %s" % enemy_id)
 			return false
+		if int(rewards.get("run_xp", 0)) <= 0:
+			push_error("Enemy run XP reward must be positive: %s" % enemy_id)
+			return false
 		var healing_orb: Dictionary = rewards.get("healing_orb", {})
 		var healing_chance := float(healing_orb.get("chance", -1.0))
 		var healing_fraction := float(healing_orb.get("max_health_fraction", 0.0))
@@ -322,6 +344,7 @@ func _index_units(records: Array, id_pattern: RegEx) -> bool:
 		var movement: Dictionary = unit.get("movement", {})
 		var attack: Dictionary = unit.get("attack", {})
 		var summon: Dictionary = unit.get("summon", {})
+		var upgrade: Dictionary = unit.get("upgrade", {})
 		var formation: Dictionary = unit.get("formation", {})
 		var presentation: Dictionary = unit.get("presentation", {})
 		if float(health.get("max", 0.0)) <= 0.0:
@@ -358,6 +381,13 @@ func _index_units(records: Array, id_pattern: RegEx) -> bool:
 			push_error("Unit summon hotkey slot is invalid or duplicated: %s" % unit_id)
 			return false
 		hotkey_slots[hotkey_slot] = unit_id
+		if int(upgrade.get("base_gold_cost", 0)) <= 0 or float(upgrade.get("cost_growth", 0.0)) < 1.0 or int(upgrade.get("max_level", 0)) <= 0:
+			push_error("Unit upgrade curve is invalid: %s" % unit_id)
+			return false
+		for upgrade_key in ["health_per_level", "damage_per_level", "defense_per_level", "attack_speed_per_level"]:
+			if float(upgrade.get(upgrade_key, -1.0)) < 0.0:
+				push_error("Unit upgrade stat must be non-negative: %s.%s" % [unit_id, upgrade_key])
+				return false
 		if float(formation.get("base_radius", 0.0)) <= 0.0 or int(formation.get("slots_per_ring", 0)) <= 0 or float(formation.get("ring_spacing", -1.0)) < 0.0:
 			push_error("Unit formation values are invalid: %s" % unit_id)
 			return false
@@ -371,6 +401,55 @@ func _index_units(records: Array, id_pattern: RegEx) -> bool:
 			push_error("Unit presentation scale is invalid: %s" % unit_id)
 			return false
 		units[unit_id] = unit.duplicate(true)
+	return true
+
+
+func _index_king_skills(records: Array, progression: Dictionary, id_pattern: RegEx) -> bool:
+	var supported_effects := [
+		"royal_might",
+		"swift_command",
+		"sovereign_reach",
+		"iron_will",
+		"piercing_wave",
+		"dragon_aura",
+	]
+	if int(progression.get("base_xp_to_level", 0)) <= 0 or int(progression.get("xp_growth_per_level", -1)) < 0:
+		push_error("King progression XP curve is invalid.")
+		return false
+	var choice_count := int(progression.get("choice_count", 0))
+	if choice_count <= 0 or choice_count > records.size():
+		push_error("King progression choice count is invalid.")
+		return false
+	for skill_value in records:
+		if not skill_value is Dictionary:
+			push_error("King skill catalog contains a non-object entry.")
+			return false
+		var skill: Dictionary = skill_value
+		var skill_id := str(skill.get("id", ""))
+		var effect_type := str(skill.get("effect_type", ""))
+		var levels_value: Variant = skill.get("levels", null)
+		if id_pattern.search(skill_id) == null or king_skills.has(skill_id):
+			push_error("King skill ID is invalid or duplicated: %s" % skill_id)
+			return false
+		if effect_type not in supported_effects:
+			push_error("King skill effect type is invalid: %s" % skill_id)
+			return false
+		if str(skill.get("name_key", "")).is_empty() or str(skill.get("description_key", "")).is_empty():
+			push_error("King skill localization keys are missing: %s" % skill_id)
+			return false
+		if not levels_value is Array or levels_value.is_empty():
+			push_error("King skill levels are missing: %s" % skill_id)
+			return false
+		for level_value in levels_value:
+			if not level_value is Dictionary or level_value.is_empty():
+				push_error("King skill level is invalid: %s" % skill_id)
+				return false
+			for stat_value in level_value.values():
+				if not stat_value is float and not stat_value is int:
+					push_error("King skill level stat is not numeric: %s" % skill_id)
+					return false
+		king_skills[skill_id] = skill.duplicate(true)
+	king_progression = progression.duplicate(true)
 	return true
 
 
@@ -446,6 +525,22 @@ func get_weapon_archetype_ids() -> PackedStringArray:
 		ids.append(str(archetype_id))
 	ids.sort()
 	return ids
+
+
+func get_king_skill(skill_id: StringName) -> Dictionary:
+	return king_skills.get(str(skill_id), {}).duplicate(true)
+
+
+func get_king_skill_ids() -> PackedStringArray:
+	var ids := PackedStringArray()
+	for skill_id in king_skills.keys():
+		ids.append(str(skill_id))
+	ids.sort()
+	return ids
+
+
+func get_king_progression_config() -> Dictionary:
+	return king_progression.duplicate(true)
 
 
 func _valid_positive_bounds(bounds: Dictionary) -> bool:

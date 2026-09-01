@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "content_version": "phase4.0",
+  "content_version": "phase5.0",
   "kings": [
     {
       "id": "tran_hung_dao",
@@ -21,7 +21,8 @@
         "magic_resistance": 6.0
       },
       "army_capacity": {
-        "max": 20
+        "max": 20,
+        "unlimited": true
       },
       "attack": {
         "damage": 56.0,

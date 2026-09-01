@@ -19,6 +19,8 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 @onready var projectile_pool: EnemyProjectilePool = %EnemyProjectilePool
 @onready var ally_projectile_pool: AllyProjectilePool = %AllyProjectilePool
 @onready var army_controller: ArmyController = %ArmyController
+@onready var king_skill_runtime: KingSkillRuntime = %KingSkillRuntime
+@onready var king_progression_controller: KingProgressionController = %KingProgressionController
 @onready var king: KingController = %King
 @onready var joystick: MovementJoystick = %VirtualJoystick
 @onready var arena_title_label: Label = %ArenaTitleLabel
@@ -30,10 +32,15 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 @onready var king_health_bar: ProgressBar = %KingHealthBar
 @onready var enemy_count_label: Label = %EnemyCountLabel
 @onready var run_gold_label: Label = %RunGoldLabel
+@onready var level_xp_label: Label = %LevelXpLabel
+@onready var xp_bar: ProgressBar = %XpBar
 @onready var army_capacity_label: Label = %ArmyCapacityLabel
 @onready var summon_roster_label: Label = %SummonRosterLabel
 @onready var summon_grid: GridContainer = %SummonGrid
 @onready var summon_button_template: Button = %SummonButtonTemplate
+@onready var upgrade_roster_label: Label = %UpgradeRosterLabel
+@onready var upgrade_grid: GridContainer = %UpgradeGrid
+@onready var upgrade_button_template: Button = %UpgradeButtonTemplate
 @onready var control_hint_label: Label = %ControlHintLabel
 @onready var scope_hint_label: Label = %ScopeHintLabel
 @onready var target_label: Label = %TargetLabel
@@ -43,10 +50,17 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 @onready var defeat_detail_label: Label = %DefeatDetailLabel
 @onready var retry_button: Button = %RetryButton
 @onready var defeat_back_button: Button = %DefeatBackButton
+@onready var level_up_overlay: Control = %LevelUpOverlay
+@onready var level_up_title_label: Label = %LevelUpTitleLabel
+@onready var level_up_hint_label: Label = %LevelUpHintLabel
+@onready var skill_card_1: Button = %SkillCard1
+@onready var skill_card_2: Button = %SkillCard2
+@onready var skill_card_3: Button = %SkillCard3
 
 var _king_config: Dictionary = {}
 var _enemy_configs: Dictionary = {}
 var _unit_configs: Dictionary = {}
+var _skill_configs: Dictionary = {}
 var _training_enemies: Dictionary = {}
 var _gold_pickups: Dictionary = {}
 var _healing_pickups: Dictionary = {}
@@ -58,7 +72,9 @@ var _hold_mouse_active := false
 var _hold_touch_index := -1
 var _hold_pointer_position := Vector2.ZERO
 var _summon_buttons: Dictionary = {}
+var _upgrade_buttons: Dictionary = {}
 var _unit_ids_by_hotkey: Dictionary = {}
+var _current_skill_choices: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -71,19 +87,43 @@ func _ready() -> void:
 	_king_config = ContentDatabase.get_king(&"tran_hung_dao")
 	_load_enemy_configs()
 	_load_unit_configs()
+	_load_skill_configs()
 	king.configure(_king_config)
+	king.auto_attack.set_projectile_pool(ally_projectile_pool)
 	king.clear_movement_bounds()
 	king.global_position = GameSessionService.get_king_position(KING_SPAWN)
+	king_skill_runtime.configure(
+		king,
+		ally_projectile_pool,
+		_skill_configs,
+		GameSessionService.get_skill_state()
+	)
 	king.restore_health(GameSessionService.get_king_health(king.health.max_health))
+	king_progression_controller.state_changed.connect(_on_progression_state_changed)
+	king_progression_controller.level_up_started.connect(_on_level_up_started)
+	king_progression_controller.level_up_completed.connect(_on_level_up_completed)
+	king_progression_controller.configure(
+		GameSessionService.active_session.seed,
+		ContentDatabase.get_king_progression_config(),
+		_skill_configs,
+		king_skill_runtime,
+		GameSessionService.active_session.run_level,
+		GameSessionService.active_session.run_xp,
+		GameSessionService.get_skill_state(),
+		GameSessionService.get_progression_rng_state()
+	)
 	var army_capacity_data: Dictionary = _king_config.get("army_capacity", {})
 	army_controller.configure(
 		king,
 		int(army_capacity_data.get("max", 20)),
 		_unit_configs,
 		GameSessionService.get_army_state(),
-		ally_projectile_pool
+		ally_projectile_pool,
+		bool(army_capacity_data.get("unlimited", false)),
+		GameSessionService.get_army_upgrade_state()
 	)
 	_build_summon_controls()
+	_build_upgrade_controls()
 	_configure_infinite_world()
 	enemy_spawn_director.spawn_requested.connect(_on_spawn_requested)
 	_restore_or_create_training_encounter()
@@ -100,6 +140,10 @@ func _ready() -> void:
 	army_controller.capacity_changed.connect(_on_army_capacity_changed)
 	army_controller.unit_summoned.connect(_on_unit_summoned)
 	army_controller.unit_died.connect(_on_unit_died)
+	army_controller.upgrade_changed.connect(_on_army_upgrade_changed)
+	skill_card_1.pressed.connect(_select_skill_choice.bind(0))
+	skill_card_2.pressed.connect(_select_skill_choice.bind(1))
+	skill_card_3.pressed.connect(_select_skill_choice.bind(2))
 	LocalizationService.locale_changed.connect(_on_locale_changed)
 	get_window().focus_exited.connect(_clear_hold_movement)
 	_refresh_static_text()
@@ -206,6 +250,14 @@ func _load_unit_configs() -> void:
 			_unit_configs[unit_id] = unit_config
 
 
+func _load_skill_configs() -> void:
+	_skill_configs.clear()
+	for skill_id in ContentDatabase.get_king_skill_ids():
+		var skill_config := ContentDatabase.get_king_skill(StringName(skill_id))
+		if not skill_config.is_empty():
+			_skill_configs[str(skill_id)] = skill_config
+
+
 func _build_summon_controls() -> void:
 	_summon_buttons.clear()
 	_unit_ids_by_hotkey.clear()
@@ -233,6 +285,30 @@ func _build_summon_controls() -> void:
 		summon_grid.add_child(button)
 		_summon_buttons[unit_id] = button
 		_unit_ids_by_hotkey[hotkey_slot] = unit_id
+
+
+func _build_upgrade_controls() -> void:
+	_upgrade_buttons.clear()
+	for child in upgrade_grid.get_children():
+		if child != upgrade_button_template:
+			child.queue_free()
+	var ordered_ids: Array = _unit_configs.keys()
+	ordered_ids.sort_custom(func(left: Variant, right: Variant) -> bool:
+		var left_summon: Dictionary = _unit_configs.get(str(left), {}).get("summon", {})
+		var right_summon: Dictionary = _unit_configs.get(str(right), {}).get("summon", {})
+		return int(left_summon.get("hotkey_slot", 99)) < int(right_summon.get("hotkey_slot", 99))
+	)
+	for unit_id_value in ordered_ids:
+		var unit_id := str(unit_id_value)
+		var button := upgrade_button_template.duplicate() as Button
+		if button == null:
+			continue
+		button.name = "UpgradeUnit%s" % unit_id.to_pascal_case()
+		button.visible = true
+		button.set_meta("unit_id", unit_id)
+		button.pressed.connect(_upgrade_unit.bind(StringName(unit_id)))
+		upgrade_grid.add_child(button)
+		_upgrade_buttons[unit_id] = button
 
 
 func _restore_or_create_training_encounter() -> void:
@@ -402,6 +478,7 @@ func _store_combat_state() -> void:
 		combat_drop_director.get_runtime_snapshot()
 	)
 	GameSessionService.set_army_state(army_controller.get_army_snapshot())
+	GameSessionService.set_army_upgrade_state(army_controller.get_upgrade_levels())
 
 
 func _living_enemy_count() -> int:
@@ -438,6 +515,9 @@ func _refresh_static_text() -> void:
 	control_hint_label.text = LocalizationService.translate_key("phase2.control_hint")
 	scope_hint_label.text = LocalizationService.translate_key("phase2.scope_hint")
 	summon_roster_label.text = LocalizationService.translate_key("phase4.summon_roster")
+	upgrade_roster_label.text = LocalizationService.translate_key("phase5.upgrade_roster")
+	level_up_title_label.text = LocalizationService.translate_key("phase5.level_up_title")
+	level_up_hint_label.text = LocalizationService.translate_key("phase5.level_up_hint")
 	back_button.text = LocalizationService.translate_key("phase2.back_to_menu")
 	defeat_title_label.text = LocalizationService.translate_key("phase2.defeat_title")
 	defeat_detail_label.text = LocalizationService.translate_key("phase2.defeat_detail")
@@ -471,10 +551,29 @@ func _refresh_live_text() -> void:
 		"phase2.run_gold",
 		{"amount": RewardGrantService.get_run_gold()}
 	)
-	army_capacity_label.text = LocalizationService.translate_key(
-		"phase4.army_capacity",
-		{"used": army_controller.get_used_capacity(), "max": army_controller.maximum_capacity}
+	level_xp_label.text = LocalizationService.translate_key(
+		"phase5.level_xp",
+		{
+			"level": king_progression_controller.get_run_level(),
+			"xp": king_progression_controller.get_run_xp(),
+			"required": king_progression_controller.get_xp_required(),
+		}
 	)
+	xp_bar.value = (
+		float(king_progression_controller.get_run_xp())
+		/ float(maxi(king_progression_controller.get_xp_required(), 1))
+		* 100.0
+	)
+	if army_controller.unlimited_summons:
+		army_capacity_label.text = LocalizationService.translate_key(
+			"phase5.army_unlimited",
+			{"count": army_controller.get_living_unit_count()}
+		)
+	else:
+		army_capacity_label.text = LocalizationService.translate_key(
+			"phase4.army_capacity",
+			{"used": army_controller.get_used_capacity(), "max": army_controller.maximum_capacity}
+		)
 	for unit_id_value in _summon_buttons:
 		var unit_id := str(unit_id_value)
 		var button := _summon_buttons[unit_id] as Button
@@ -483,7 +582,7 @@ func _refresh_live_text() -> void:
 		var unit_config: Dictionary = _unit_configs.get(unit_id, {})
 		var summon_data: Dictionary = unit_config.get("summon", {})
 		button.text = LocalizationService.translate_key(
-			"phase4.summon_unit",
+			"phase5.summon_unit_unlimited" if army_controller.unlimited_summons else "phase4.summon_unit",
 			{
 				"hotkey": int(summon_data.get("hotkey_slot", 0)),
 				"name": LocalizationService.translate_key(str(unit_config.get("name_key", unit_id))),
@@ -492,6 +591,34 @@ func _refresh_live_text() -> void:
 			}
 		)
 		button.disabled = not army_controller.can_summon(StringName(unit_id))
+	for unit_id_value in _upgrade_buttons:
+		var unit_id := str(unit_id_value)
+		var button := _upgrade_buttons[unit_id] as Button
+		if not is_instance_valid(button):
+			continue
+		var unit_config: Dictionary = _unit_configs.get(unit_id, {})
+		var upgrade_data: Dictionary = unit_config.get("upgrade", {})
+		var level := army_controller.get_upgrade_level(StringName(unit_id))
+		var max_level := int(upgrade_data.get("max_level", 0))
+		if level >= max_level:
+			button.text = LocalizationService.translate_key(
+				"phase5.upgrade_unit_max",
+				{
+					"name": LocalizationService.translate_key(str(unit_config.get("name_key", unit_id))),
+					"level": level,
+				}
+			)
+		else:
+			button.text = LocalizationService.translate_key(
+				"phase5.upgrade_unit",
+				{
+					"name": LocalizationService.translate_key(str(unit_config.get("name_key", unit_id))),
+					"level": level,
+					"next": level + 1,
+					"cost": army_controller.get_upgrade_cost(StringName(unit_id)),
+				}
+			)
+		button.disabled = not army_controller.can_upgrade(StringName(unit_id))
 	var current_target := king.auto_attack.get_current_target()
 	if is_instance_valid(current_target) and current_target.is_combat_alive():
 		target_label.text = LocalizationService.translate_key(
@@ -515,6 +642,10 @@ func _on_enemy_defeated(enemy: GoblinController, _context: Dictionary) -> void:
 	_next_pickup_serial += 1
 	var enemy_config: Dictionary = _enemy_configs.get(str(enemy.enemy_id), {})
 	var reward_data: Dictionary = enemy_config.get("rewards", {})
+	RewardGrantService.grant_run_xp(
+		maxi(int(reward_data.get("run_xp", 1)), 1),
+		{"source_kind": "enemy", "source_id": str(enemy.enemy_id), "instance_id": enemy.instance_id}
+	)
 	_create_gold_pickup(pickup_id, defeated_position, maxi(int(reward_data.get("run_gold", 1)), 1))
 	var healing_drop := combat_drop_director.roll_healing_pickup(reward_data)
 	if not healing_drop.is_empty():
@@ -566,6 +697,13 @@ func _summon_unit(unit_id: StringName) -> void:
 	_refresh_live_text()
 
 
+func _upgrade_unit(unit_id: StringName) -> void:
+	var result := army_controller.try_upgrade(unit_id)
+	if bool(result.get("accepted", false)):
+		_store_combat_state()
+	_refresh_live_text()
+
+
 func _on_army_capacity_changed(_used: int, _maximum: int) -> void:
 	_refresh_live_text()
 
@@ -578,6 +716,55 @@ func _on_unit_summoned(_unit: SummonedUnitController) -> void:
 func _on_unit_died(_unit_id: StringName, _context: Dictionary) -> void:
 	_store_combat_state()
 	_refresh_live_text()
+
+
+func _on_army_upgrade_changed(_unit_id: StringName, _level: int, _next_cost: int) -> void:
+	_store_combat_state()
+	_refresh_live_text()
+
+
+func _on_progression_state_changed(_run_level: int, _run_xp: int, _xp_required: int) -> void:
+	_refresh_live_text()
+
+
+func _on_level_up_started(choices: Array[Dictionary]) -> void:
+	_current_skill_choices = choices.duplicate(true)
+	_refresh_level_up_choices()
+	level_up_overlay.visible = true
+
+
+func _on_level_up_completed(_skill_id: StringName, _new_skill_level: int) -> void:
+	level_up_overlay.visible = false
+	_current_skill_choices.clear()
+	_store_combat_state()
+	_refresh_live_text()
+
+
+func _select_skill_choice(choice_index: int) -> void:
+	if choice_index < 0 or choice_index >= _current_skill_choices.size():
+		return
+	var choice: Dictionary = _current_skill_choices[choice_index]
+	king_progression_controller.select_skill(StringName(str(choice.get("id", ""))))
+
+
+func _refresh_level_up_choices() -> void:
+	var cards: Array[Button] = [skill_card_1, skill_card_2, skill_card_3]
+	for index in cards.size():
+		var card := cards[index]
+		if index >= _current_skill_choices.size():
+			card.visible = false
+			continue
+		card.visible = true
+		var choice: Dictionary = _current_skill_choices[index]
+		card.text = LocalizationService.translate_key(
+			"phase5.skill_card",
+			{
+				"name": LocalizationService.translate_key(str(choice.get("name_key", ""))),
+				"description": LocalizationService.translate_key(str(choice.get("description_key", ""))),
+				"level": int(choice.get("current_level", 0)) + 1,
+				"max": int(choice.get("max_level", 1)),
+			}
+		)
 
 
 func _on_king_defeated(_context: Dictionary) -> void:
@@ -608,10 +795,13 @@ func _on_target_changed(_target: GoblinController) -> void:
 func _on_locale_changed(_locale: String) -> void:
 	_refresh_static_text()
 	_refresh_live_text()
+	if level_up_overlay.visible:
+		_refresh_level_up_choices()
 
 
 func _restart_combat_drill() -> void:
 	_skip_exit_snapshot = true
+	GameSessionService.pause_manager.clear_pause(PauseManager.LEVEL_UP)
 	var session_seed := int(Time.get_ticks_usec() & 0x7fffffff)
 	GameSessionService.start_session(&"tran_hung_dao", &"dai_viet", session_seed)
 	SceneService.change_scene_to_file("res://scenes/gameplay/movement_arena.tscn")
@@ -626,6 +816,7 @@ func _return_to_menu() -> void:
 	ally_projectile_pool.set_combat_enabled(false)
 	army_controller.set_combat_enabled(false)
 	_store_combat_state()
+	GameSessionService.pause_manager.clear_pause(PauseManager.LEVEL_UP)
 	SceneService.change_scene_to_file("res://scenes/menus/main_menu.tscn")
 
 

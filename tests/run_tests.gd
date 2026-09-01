@@ -9,7 +9,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	print("[TEST] The Last King Phase 4C Dai Viet roster")
+	print("[TEST] The Last King Phase 5 royal progression")
 	_test_project_configuration()
 	_test_scenes_load()
 	_test_faction_roster()
@@ -17,6 +17,7 @@ func _run() -> void:
 	_test_king_catalog()
 	_test_enemy_catalog()
 	_test_unit_catalog()
+	_test_king_skill_catalog()
 	_test_localization_catalogs()
 	_test_platform_adapter()
 	_test_battle_session_serialization()
@@ -32,12 +33,15 @@ func _run() -> void:
 	_test_target_selection()
 	await _test_king_scene_movement()
 	await _test_auto_attack_combat()
+	await _test_king_piercing_attacks()
 	await _test_goblin_attack_combat()
 	await _test_goblin_ranged_magic_combat()
 	await _test_spearman_combat()
 	await _test_ally_ranged_combat()
 	await _test_army_summoning_and_restore()
 	await _test_dai_viet_roster_summoning()
+	await _test_unlimited_army_upgrade()
+	await _test_king_level_and_skills()
 	await _test_healing_orb_continue()
 	await _test_endless_respawn_and_gold_pickup()
 	await _test_desktop_menu_exit_runtime()
@@ -57,7 +61,7 @@ func _run() -> void:
 
 func _test_project_configuration() -> void:
 	_expect(ProjectSettings.get_setting("application/config/name") == "The Last King", "Project name is canonical.")
-	_expect(ProjectSettings.get_setting("application/config/version") == "0.4.2", "Game version is independent and explicit.")
+	_expect(ProjectSettings.get_setting("application/config/version") == "0.5.0", "Game version is independent and explicit.")
 	var project_file := _read_text("res://project.godot")
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
@@ -168,6 +172,7 @@ func _test_king_catalog() -> void:
 	_expect(float(defense.get("armor", -1.0)) >= 0.0, "King armor is non-negative.")
 	_expect(float(defense.get("magic_resistance", -1.0)) >= 0.0, "King magic resistance is non-negative.")
 	_expect(int(army_capacity.get("max", 0)) == 20, "Trần Hưng Đạo starts with twenty Army Capacity.")
+	_expect(bool(army_capacity.get("unlimited", false)), "Trần Hưng Đạo can summon an unlimited number of living soldiers.")
 	for combat_key in ["damage", "range", "cooldown", "target_refresh"]:
 		_expect(float(attack.get(combat_key, 0.0)) > 0.0, "King attack value is positive: %s" % combat_key)
 	if weapon_archetypes.has(weapon_archetype_id):
@@ -234,7 +239,7 @@ func _test_enemy_catalog() -> void:
 	var english := _load_json("res://localization/en-US/common.json")
 	var vietnamese := _load_json("res://localization/vi-VN/common.json")
 	_expect(int(catalog.get("schema_version", 0)) == 2, "Enemy catalog schema is versioned for multi-archetype combat.")
-	_expect(str(catalog.get("content_version", "")).begins_with("phase4"), "Enemy catalog identifies Phase 4 survival content.")
+	_expect(str(catalog.get("content_version", "")).begins_with("phase5"), "Enemy catalog identifies Phase 5 survival content.")
 	var enemies: Array = catalog.get("enemies", [])
 	_expect(enemies.size() >= 4, "At least four Goblin combat archetypes are available.")
 	var seen_ids: Dictionary = {}
@@ -272,6 +277,7 @@ func _test_enemy_catalog() -> void:
 		_expect(damage_type in ["physical", "magic"], "Enemy damage type is supported: %s" % enemy_id)
 		_expect(float(spawn.get("weight", 0.0)) > 0.0, "Enemy has a positive seeded spawn weight: %s" % enemy_id)
 		_expect(int(rewards.get("run_gold", 0)) > 0, "Enemy grants a positive run Gold reward: %s" % enemy_id)
+		_expect(int(rewards.get("run_xp", 0)) > 0, "Enemy grants positive King XP: %s" % enemy_id)
 		var healing_orb: Dictionary = rewards.get("healing_orb", {})
 		_expect(float(healing_orb.get("chance", -1.0)) >= 0.0 and float(healing_orb.get("chance", 2.0)) <= 1.0, "Enemy Healing Orb chance is bounded: %s" % enemy_id)
 		_expect(float(healing_orb.get("max_health_fraction", 0.0)) > 0.0, "Enemy Healing Orb restores a positive health fraction: %s" % enemy_id)
@@ -300,7 +306,7 @@ func _test_unit_catalog() -> void:
 	var english := _load_json("res://localization/en-US/common.json")
 	var vietnamese := _load_json("res://localization/vi-VN/common.json")
 	_expect(int(catalog.get("schema_version", 0)) == 1, "Unit catalog schema is versioned.")
-	_expect(str(catalog.get("content_version", "")).begins_with("phase4"), "Unit catalog identifies Phase 4 content.")
+	_expect(str(catalog.get("content_version", "")).begins_with("phase5"), "Unit catalog identifies Phase 5 content.")
 	var units: Array = catalog.get("units", [])
 	_expect(units.size() == 7, "Phase 4C exposes all seven summonable Dai Viet unit types.")
 	var expected_ids := [
@@ -327,6 +333,7 @@ func _test_unit_catalog() -> void:
 		var movement: Dictionary = unit.get("movement", {})
 		var attack: Dictionary = unit.get("attack", {})
 		var summon: Dictionary = unit.get("summon", {})
+		var upgrade: Dictionary = unit.get("upgrade", {})
 		var formation: Dictionary = unit.get("formation", {})
 		var presentation: Dictionary = unit.get("presentation", {})
 		var hotkey_slot := int(summon.get("hotkey_slot", 0))
@@ -340,6 +347,9 @@ func _test_unit_catalog() -> void:
 		for attack_key in ["damage", "range", "detection_range", "leash_range", "attacks_per_second", "target_refresh"]:
 			_expect(float(attack.get(attack_key, 0.0)) > 0.0, "Unit attack value is positive: %s/%s" % [unit_id, attack_key])
 		_expect(int(summon.get("run_gold_cost", 0)) > 0 and int(summon.get("capacity_cost", 0)) > 0, "Unit has positive summon costs: %s" % unit_id)
+		_expect(int(upgrade.get("base_gold_cost", 0)) > 0 and int(upgrade.get("max_level", 0)) > 0, "Unit has a positive run-Gold upgrade curve: %s" % unit_id)
+		for upgrade_key in ["health_per_level", "damage_per_level", "defense_per_level", "attack_speed_per_level"]:
+			_expect(float(upgrade.get(upgrade_key, -1.0)) >= 0.0, "Unit upgrade stat is non-negative: %s/%s" % [unit_id, upgrade_key])
 		_expect(hotkey_slot >= 1 and hotkey_slot <= 7 and not seen_hotkeys.has(hotkey_slot), "Unit has a unique roster hotkey: %s" % unit_id)
 		_expect(int(formation.get("slots_per_ring", 0)) > 0 and float(formation.get("base_radius", 0.0)) > 0.0, "Unit formation is data-driven: %s" % unit_id)
 		_expect(not str(presentation.get("visual_kind", "")).is_empty(), "Unit has a distinct visual archetype: %s" % unit_id)
@@ -359,6 +369,33 @@ func _test_unit_catalog() -> void:
 	_expect(content_database.initialize(), "Content database validates the unit catalog at startup.")
 	_expect(content_database.get_unit(&"dai_viet_spearman").get("id") == "dai_viet_spearman", "Content database indexes the Spearman.")
 	_expect(content_database.get_unit_ids_for_faction(&"dai_viet").size() == 7, "Content database queries the full Dai Viet roster by faction.")
+
+
+func _test_king_skill_catalog() -> void:
+	var catalog := _load_json("res://data/skills/king_skills.json")
+	var english := _load_json("res://localization/en-US/common.json")
+	var vietnamese := _load_json("res://localization/vi-VN/common.json")
+	_expect(int(catalog.get("schema_version", 0)) == 1, "King skill catalog is versioned.")
+	_expect(str(catalog.get("content_version", "")).begins_with("phase5"), "King skill catalog identifies Phase 5 content.")
+	var progression: Dictionary = catalog.get("progression", {})
+	_expect(int(progression.get("base_xp_to_level", 0)) > 0, "King leveling has a positive XP requirement.")
+	_expect(int(progression.get("choice_count", 0)) == 3, "Each King level offers three seeded skill choices.")
+	var skills: Array = catalog.get("skills", [])
+	_expect(skills.size() >= 6, "King has passive, projectile, and area skill choices.")
+	var effect_types: Dictionary = {}
+	for skill_value in skills:
+		if not skill_value is Dictionary:
+			_expect(false, "Each King skill entry is an object.")
+			continue
+		var skill: Dictionary = skill_value
+		var skill_id := str(skill.get("id", ""))
+		_expect(english.has(str(skill.get("name_key", ""))) and vietnamese.has(str(skill.get("name_key", ""))), "King skill name is localized: %s" % skill_id)
+		_expect(english.has(str(skill.get("description_key", ""))) and vietnamese.has(str(skill.get("description_key", ""))), "King skill description is localized: %s" % skill_id)
+		_expect(skill.get("levels", []) is Array and skill.get("levels", []).size() == 3, "King skill has three upgrade ranks: %s" % skill_id)
+		effect_types[str(skill.get("effect_type", ""))] = true
+	_expect(effect_types.has("piercing_wave") and effect_types.has("dragon_aura"), "King roster includes piercing and area active skills.")
+	var content_database := root.get_node("ContentDatabase")
+	_expect(content_database.get_king_skill_ids().size() == skills.size(), "Content database indexes every King skill.")
 
 
 func _test_localization_catalogs() -> void:
@@ -411,6 +448,8 @@ func _test_battle_session_serialization() -> void:
 	_expect(king_state.get("health") is Dictionary, "Battle session snapshots the King health state.")
 	_expect(snapshot.get("enemy_wave_state") is Dictionary, "Battle session reserves enemy combat state.")
 	_expect(snapshot.get("army") is Array, "Battle session snapshots summoned allied units.")
+	_expect(snapshot.get("skills") is Dictionary and snapshot.get("upgrades") is Dictionary, "Battle session reserves skill and army-upgrade progression.")
+	_expect(snapshot.get("run_level") == 1 and snapshot.get("run_xp") == 0, "Battle session starts King progression at level one.")
 
 
 func _test_enemy_spawn_director_state() -> void:
@@ -422,16 +461,16 @@ func _test_enemy_spawn_director_state() -> void:
 	])
 	director.configure(12345, target)
 	director.ensure_population(3)
-	_expect(director.get_pending_count() == 6, "Spawn director schedules enough Goblins to restore the bounded population.")
-	_expect(director.get_target_population(0.0) == 9, "Endless encounter starts at a moderate nine-Goblin density.")
-	_expect(director.get_target_population(45.0) == 10, "Active Goblin density grows gradually over survival time.")
-	_expect(director.get_target_population(99999.0) == 15, "Simultaneous Goblins remain capped for Web and mobile performance.")
+	_expect(director.get_pending_count() == 11, "Spawn director schedules enough Goblins to restore the denser bounded population.")
+	_expect(director.get_target_population(0.0) == 14, "Endless encounter starts with fourteen active Goblins.")
+	_expect(director.get_target_population(35.0) == 15, "Active Goblin density grows gradually over survival time.")
+	_expect(director.get_target_population(99999.0) == 24, "Simultaneous Goblins remain capped for Web and mobile performance.")
 	var snapshot := director.get_runtime_snapshot()
 	_expect(int(snapshot.get("next_spawn_serial", 0)) == 1, "Spawn director snapshots its next stable instance serial.")
 	_expect(snapshot.get("pending_spawn_delays", []) is Array, "Spawn director snapshots pending replacements.")
 	var restored := EnemySpawnDirector.new()
 	restored.configure(99999, target, snapshot)
-	_expect(restored.get_pending_count() == 6, "Spawn director restores pending replacements for Continue.")
+	_expect(restored.get_pending_count() == 11, "Spawn director restores pending replacements for Continue.")
 	director.free()
 	restored.free()
 	target.free()
@@ -488,6 +527,8 @@ func _test_reward_grants() -> void:
 	_expect(reward_grant_service.get_run_gold() == 1, "Run Gold spending updates only the active battle currency.")
 	_expect(not reward_grant_service.try_spend_run_gold(2), "Central run currency service rejects an unaffordable spend.")
 	_expect(reward_grant_service.get_run_gold() == 1, "Rejected spending does not alter run Gold.")
+	_expect(reward_grant_service.grant_run_xp(7, {"source_id": "test"}) == 7, "Reward service centrally grants King XP.")
+	_expect(reward_grant_service.get_run_xp() == 7, "Granted XP is stored in the active battle.")
 	game_session_service.end_session({"reason": "test_complete"})
 	_expect(reward_grant_service.grant_run_gold(3) == 0, "Reward service rejects grants without an active battle.")
 	_expect(not reward_grant_service.try_spend_run_gold(1), "Reward service rejects spending without an active battle.")
@@ -551,8 +592,8 @@ func _test_movement_arena_layout() -> void:
 	if run_gold_label != null:
 		_expect(run_gold_label.get_theme_color("font_color").r > 0.9, "Run Gold counter uses a bright Gold color.")
 	var spawn_director := arena.get_node("EnemySpawnDirector") as EnemySpawnDirector
-	_expect(spawn_director != null and spawn_director.base_population == 9, "Combat arena starts with a moderate nine-Goblin population.")
-	_expect(spawn_director != null and spawn_director.maximum_population == 15, "Combat arena caps simultaneous Goblins at fifteen.")
+	_expect(spawn_director != null and spawn_director.base_population == 14, "Combat arena starts with fourteen Goblins.")
+	_expect(spawn_director != null and spawn_director.maximum_population == 24, "Combat arena caps simultaneous Goblins at twenty-four.")
 	var army_controller := arena.get_node("ArmyController") as ArmyController
 	_expect(army_controller != null, "Combat arena owns an ordinary ArmyController node.")
 	var projectile_pool := arena.get_node("EnemyProjectilePool") as EnemyProjectilePool
@@ -568,7 +609,13 @@ func _test_movement_arena_layout() -> void:
 	_expect(summon_grid != null and summon_grid.columns == 2, "Combat HUD reserves a two-column Dai Viet summon roster.")
 	_expect(summon_template != null and summon_template.custom_minimum_size.y >= 48.0, "Roster summon buttons meet the touch target baseline.")
 	var army_capacity_label := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/ArmyCapacityLabel") as Label
-	_expect(army_capacity_label != null, "Combat HUD displays Army Capacity.")
+	_expect(army_capacity_label != null, "Combat HUD displays the unlimited living army count.")
+	var upgrade_grid := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/UpgradeGrid") as GridContainer
+	_expect(upgrade_grid != null and upgrade_grid.columns == 2, "Combat HUD reserves data-driven unit upgrade controls.")
+	var xp_bar := arena.get_node("HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry/XpBar") as ProgressBar
+	_expect(xp_bar != null, "Combat HUD displays King level and XP progress.")
+	var level_overlay := arena.get_node("HudLayer/LevelUpOverlay") as Control
+	_expect(level_overlay != null and level_overlay.process_mode == Node.PROCESS_MODE_ALWAYS, "Level-up choices remain interactive while battle simulation is paused.")
 	_expect(
 		not SummonedUnitPlaceholderVisual.HEALTH_BAR_FILL_COLOR.is_equal_approx(KingPlaceholderVisual.HEALTH_BAR_FILL_COLOR)
 		and not SummonedUnitPlaceholderVisual.HEALTH_BAR_FILL_COLOR.is_equal_approx(GoblinPlaceholderVisual.HEALTH_BAR_FILL_COLOR),
@@ -870,6 +917,98 @@ func _test_auto_attack_combat() -> void:
 	_expect(distant_goblin.health.current_health < distant_starting_health, "Bow King damages an enemy at the configured long range.")
 	ranged_king.queue_free()
 	distant_goblin.queue_free()
+	await process_frame
+
+
+func _test_king_piercing_attacks() -> void:
+	var packed_king := load("res://scenes/gameplay/king.tscn") as PackedScene
+	var packed_goblin := load("res://scenes/gameplay/goblin.tscn") as PackedScene
+	if packed_king == null or packed_goblin == null:
+		_expect(false, "King piercing combat fixtures load.")
+		return
+	var content_database := root.get_node("ContentDatabase")
+	var king_data: Dictionary = content_database.get_king(&"tran_hung_dao")
+	var enemy_data: Dictionary = content_database.get_enemy(&"goblin")
+
+	var melee_king := packed_king.instantiate() as KingController
+	var near_melee := packed_goblin.instantiate() as GoblinController
+	var far_melee := packed_goblin.instantiate() as GoblinController
+	melee_king.global_position = Vector2.ZERO
+	near_melee.global_position = Vector2(90.0, 0.0)
+	far_melee.global_position = Vector2(155.0, 8.0)
+	root.add_child(melee_king)
+	root.add_child(near_melee)
+	root.add_child(far_melee)
+	await process_frame
+	melee_king.follow_camera.enabled = false
+	melee_king.set_keyboard_enabled(false)
+	melee_king.set_movement_enabled(false)
+	melee_king.configure(king_data)
+	var one_slash: Dictionary = king_data.get("attack", {}).duplicate(true)
+	one_slash["damage"] = 20.0
+	one_slash["cooldown"] = 10.0
+	melee_king.auto_attack.configure(one_slash, king_data.get("weapon_archetype", {}))
+	near_melee.configure(enemy_data, "piercing_melee_near")
+	far_melee.configure(enemy_data, "piercing_melee_far")
+	near_melee.set_combat_enabled(false)
+	far_melee.set_combat_enabled(false)
+	var near_melee_health := near_melee.health.current_health
+	var far_melee_health := far_melee.health.current_health
+	for _frame in 5:
+		await physics_frame
+	_expect(near_melee.health.current_health < near_melee_health, "One King slash damages the first Goblin in its arc.")
+	_expect(far_melee.health.current_health < far_melee_health, "The same King slash passes through and damages a second Goblin.")
+	melee_king.queue_free()
+	near_melee.queue_free()
+	far_melee.queue_free()
+	await process_frame
+
+	var ranged_king := packed_king.instantiate() as KingController
+	var near_ranged := packed_goblin.instantiate() as GoblinController
+	var far_ranged := packed_goblin.instantiate() as GoblinController
+	var projectile_pool := AllyProjectilePool.new()
+	projectile_pool.prewarm_count = 4
+	ranged_king.global_position = Vector2.ZERO
+	near_ranged.global_position = Vector2(170.0, 0.0)
+	far_ranged.global_position = Vector2(310.0, 0.0)
+	root.add_child(projectile_pool)
+	root.add_child(ranged_king)
+	root.add_child(near_ranged)
+	root.add_child(far_ranged)
+	await process_frame
+	ranged_king.follow_camera.enabled = false
+	ranged_king.set_keyboard_enabled(false)
+	ranged_king.set_movement_enabled(false)
+	var ranged_data: Dictionary = king_data.duplicate(true)
+	ranged_data["weapon_archetype"] = {
+		"id": "bow",
+		"attack_style": "ranged",
+		"damage_type": "physical",
+		"visual_kind": "bow",
+	}
+	var ranged_attack: Dictionary = ranged_data.get("attack", {}).duplicate(true)
+	ranged_attack["damage"] = 20.0
+	ranged_attack["range"] = 640.0
+	ranged_attack["cooldown"] = 10.0
+	ranged_data["attack"] = ranged_attack
+	ranged_king.configure(ranged_data)
+	ranged_king.auto_attack.set_projectile_pool(projectile_pool)
+	near_ranged.configure(enemy_data, "piercing_ranged_near")
+	far_ranged.configure(enemy_data, "piercing_ranged_far")
+	near_ranged.set_combat_enabled(false)
+	far_ranged.set_combat_enabled(false)
+	var near_ranged_health := near_ranged.health.current_health
+	var far_ranged_health := far_ranged.health.current_health
+	for _frame in 32:
+		await physics_frame
+	_expect(near_ranged.health.current_health < near_ranged_health, "One King arrow damages the first Goblin in its path.")
+	_expect(far_ranged.health.current_health < far_ranged_health, "The same King arrow remains active and damages a second Goblin.")
+	_expect(projectile_pool.get_active_count() == 1, "Unlimited-piercing King projectile remains active after hitting multiple targets.")
+	projectile_pool.set_combat_enabled(false)
+	ranged_king.queue_free()
+	near_ranged.queue_free()
+	far_ranged.queue_free()
+	projectile_pool.queue_free()
 	await process_frame
 
 
@@ -1224,6 +1363,130 @@ func _test_dai_viet_roster_summoning() -> void:
 	game_session_service.end_session({"reason": "test_complete"})
 
 
+func _test_unlimited_army_upgrade() -> void:
+	var game_session_service := root.get_node("GameSessionService")
+	var reward_grant_service := root.get_node("RewardGrantService")
+	var content_database := root.get_node("ContentDatabase")
+	game_session_service.start_session(&"tran_hung_dao", &"dai_viet", 54321)
+	var packed_king := load("res://scenes/gameplay/king.tscn") as PackedScene
+	var king := packed_king.instantiate() as KingController
+	root.add_child(king)
+	await process_frame
+	king.follow_camera.enabled = false
+	king.set_keyboard_enabled(false)
+	king.set_movement_enabled(false)
+	king.configure(content_database.get_king(&"tran_hung_dao"))
+	king.auto_attack.set_combat_enabled(false)
+	var spearman_config: Dictionary = content_database.get_unit(&"dai_viet_spearman")
+	var unit_configs := {"dai_viet_spearman": spearman_config}
+	var summon_cost := int(spearman_config.get("summon", {}).get("run_gold_cost", 0))
+	var upgrade_cost := int(spearman_config.get("upgrade", {}).get("base_gold_cost", 0))
+	reward_grant_service.grant_run_gold(summon_cost * 3 + upgrade_cost, {"source_id": "unlimited_upgrade_test"})
+	var army := ArmyController.new()
+	root.add_child(army)
+	army.configure(king, 1, unit_configs, [], null, true)
+	var first := army.try_summon(&"dai_viet_spearman")
+	var second := army.try_summon(&"dai_viet_spearman")
+	_expect(bool(first.get("accepted", false)) and bool(second.get("accepted", false)), "Unlimited summons ignore the old living Army Capacity ceiling.")
+	_expect(army.get_used_capacity() > army.maximum_capacity, "Unlimited army may exceed the legacy capacity number.")
+	var first_unit := army.get_units()[0]
+	var base_health := first_unit.health.max_health
+	var base_damage := first_unit.attack_damage
+	var upgrade_result := army.try_upgrade(&"dai_viet_spearman")
+	_expect(bool(upgrade_result.get("accepted", false)) and army.get_upgrade_level(&"dai_viet_spearman") == 1, "Run Gold upgrades a whole soldier type.")
+	_expect(first_unit.health.max_health > base_health and first_unit.attack_damage > base_damage, "Unit upgrade immediately strengthens existing soldiers.")
+	var third := army.try_summon(&"dai_viet_spearman")
+	_expect(bool(third.get("accepted", false)) and army.get_living_unit_count() == 3, "Summoning stays available without a fixed soldier count.")
+	var newest_unit := third.get("unit") as SummonedUnitController
+	_expect(newest_unit != null and newest_unit.get_upgrade_level() == 1, "New summons inherit their unit type's purchased upgrade.")
+	var snapshots := army.get_army_snapshot()
+	_expect(snapshots.size() == 3 and int(snapshots[0].get("upgrade_level", 0)) == 1, "Continue snapshot records upgraded soldiers.")
+	_expect(int(game_session_service.get_army_upgrade_state().get("dai_viet_spearman", 0)) == 1, "Battle session stores the unit upgrade level separately from living soldiers.")
+	_expect(reward_grant_service.get_run_gold() == 0, "Summons and upgrades spend exactly their configured run Gold costs.")
+	army.queue_free()
+	king.queue_free()
+	await process_frame
+	game_session_service.end_session({"reason": "test_complete"})
+
+
+func _test_king_level_and_skills() -> void:
+	var game_session_service := root.get_node("GameSessionService")
+	var reward_grant_service := root.get_node("RewardGrantService")
+	var content_database := root.get_node("ContentDatabase")
+	game_session_service.start_session(&"tran_hung_dao", &"dai_viet", 98765)
+	var packed_king := load("res://scenes/gameplay/king.tscn") as PackedScene
+	var packed_goblin := load("res://scenes/gameplay/goblin.tscn") as PackedScene
+	var king := packed_king.instantiate() as KingController
+	var projectile_pool := AllyProjectilePool.new()
+	var skill_runtime := KingSkillRuntime.new()
+	var progression := KingProgressionController.new()
+	root.add_child(projectile_pool)
+	root.add_child(king)
+	root.add_child(skill_runtime)
+	root.add_child(progression)
+	await process_frame
+	king.follow_camera.enabled = false
+	king.set_keyboard_enabled(false)
+	king.set_movement_enabled(false)
+	king.configure(content_database.get_king(&"tran_hung_dao"))
+	king.auto_attack.set_combat_enabled(false)
+	var skill_configs: Dictionary = {}
+	for skill_id in content_database.get_king_skill_ids():
+		skill_configs[str(skill_id)] = content_database.get_king_skill(StringName(skill_id))
+	skill_runtime.configure(king, projectile_pool, skill_configs)
+	progression.configure(
+		game_session_service.active_session.seed,
+		content_database.get_king_progression_config(),
+		skill_configs,
+		skill_runtime
+	)
+	var xp_required := progression.get_xp_required()
+	reward_grant_service.grant_run_xp(xp_required, {"source_id": "level_test"})
+	_expect(progression.get_run_level() == 2 and progression.get_run_xp() == 0, "Enough enemy XP advances the King and consumes the level threshold.")
+	_expect(progression.is_selection_pending() and progression.get_current_choices().size() == 3, "A new King level creates three seeded skill choices.")
+	_expect(game_session_service.pause_manager.is_paused() and paused, "King level-up pauses the whole battle simulation.")
+	var choices := progression.get_current_choices()
+	if not choices.is_empty():
+		var selected_id := StringName(str(choices[0].get("id", "")))
+		_expect(progression.select_skill(selected_id), "Choosing a level-up card applies that King skill.")
+		_expect(skill_runtime.get_skill_level(selected_id) == 1, "Selected King skill advances to rank one.")
+		_expect(int(game_session_service.get_skill_state().get(str(selected_id), 0)) == 1, "Continue state stores the selected King skill rank.")
+	_expect(not game_session_service.pause_manager.is_paused() and not paused, "Selecting a skill resumes battle simulation.")
+
+	var near_goblin := packed_goblin.instantiate() as GoblinController
+	var far_goblin := packed_goblin.instantiate() as GoblinController
+	near_goblin.global_position = Vector2(170.0, 0.0)
+	far_goblin.global_position = Vector2(300.0, 0.0)
+	root.add_child(near_goblin)
+	root.add_child(far_goblin)
+	await process_frame
+	var enemy_config: Dictionary = content_database.get_enemy(&"goblin")
+	near_goblin.configure(enemy_config, "skill_piercing_near")
+	far_goblin.configure(enemy_config, "skill_piercing_far")
+	near_goblin.set_combat_enabled(false)
+	far_goblin.set_combat_enabled(false)
+	var near_health := near_goblin.health.current_health
+	var far_health := far_goblin.health.current_health
+	var wave_config: Dictionary = skill_configs.get("piercing_wave", {})
+	var wave_levels: Array = wave_config.get("levels", [])
+	if not wave_levels.is_empty():
+		skill_runtime.call("_cast_piercing_wave", &"piercing_wave", wave_levels[0])
+	for _frame in 34:
+		await physics_frame
+	_expect(near_goblin.health.current_health < near_health, "King piercing skill damages the first Goblin in its path.")
+	_expect(far_goblin.health.current_health < far_health, "The same King skill projectile passes through and damages another Goblin.")
+	game_session_service.pause_manager.clear_pause(PauseManager.LEVEL_UP)
+	projectile_pool.set_combat_enabled(false)
+	near_goblin.queue_free()
+	far_goblin.queue_free()
+	progression.queue_free()
+	skill_runtime.queue_free()
+	projectile_pool.queue_free()
+	king.queue_free()
+	await process_frame
+	game_session_service.end_session({"reason": "test_complete"})
+
+
 func _test_healing_orb_continue() -> void:
 	var game_session_service := root.get_node("GameSessionService")
 	game_session_service.start_session(&"tran_hung_dao", &"dai_viet", 13579)
@@ -1337,7 +1600,7 @@ func _test_endless_respawn_and_gold_pickup() -> void:
 			goblin.set_combat_enabled(false)
 			initial_goblins.append(goblin)
 			initial_archetypes[str(goblin.enemy_id)] = true
-	_expect(initial_goblins.size() == 9, "Endless encounter starts with nine simultaneously active Goblins.")
+	_expect(initial_goblins.size() == 14, "Endless encounter starts with fourteen simultaneously active Goblins.")
 	_expect(initial_archetypes.size() >= 2, "Seeded endless spawning mixes multiple Goblin archetypes.")
 	if initial_goblins.is_empty():
 		arena.queue_free()
@@ -1382,7 +1645,7 @@ func _test_endless_respawn_and_gold_pickup() -> void:
 			summon_button = child as Button
 			break
 	_expect(summon_grid.get_child_count() == 8, "Combat HUD builds seven Dai Viet summon buttons from data.")
-	_expect(summon_button != null and not summon_button.disabled, "Spearman summon button enables when Gold and Army Capacity are available.")
+	_expect(summon_button != null and not summon_button.disabled, "Spearman summon button enables when enough run Gold is available.")
 	if summon_button != null:
 		summon_button.pressed.emit()
 	arena_army.set_combat_enabled(false)
@@ -1397,7 +1660,7 @@ func _test_endless_respawn_and_gold_pickup() -> void:
 	for child in arena.get_children():
 		if child is GoblinController and child.is_combat_alive():
 			living_goblins += 1
-	_expect(living_goblins == 9, "A replacement Goblin restores the bounded endless encounter population.")
+	_expect(living_goblins == 14, "A replacement Goblin restores the denser bounded endless encounter population.")
 	arena.queue_free()
 	await process_frame
 	game_session_service.end_session({"reason": "test_complete"})
