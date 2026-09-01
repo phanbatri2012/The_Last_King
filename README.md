@@ -42,7 +42,8 @@ This repository contains the technical foundation and the first playable combat 
 - Continue snapshots for uncollected Healing Orbs and deterministic healing-drop RNG;
 - XP rewards for every Goblin archetype, increasing per-level XP thresholds, and three seeded skill choices whenever the King levels up;
 - six three-rank King skills covering damage, attack/movement speed, reach, health/defense, unlimited-piercing royal waves, and periodic area damage, now with distinct upgrade/cast effects;
-- a compact battle-pausing bilingual level-up overlay that shows only skill names, plus Continue snapshots for XP, Run Level, skill ranks, skill-choice RNG, and army upgrades;
+- a battle-pausing bilingual level-up overlay that shows each skill's current/next rank and localized description, plus Continue snapshots for XP, Run Level, skill ranks, skill-choice RNG, and army upgrades;
+- an uncluttered summon HUD with unit-upgrade details moved into an on-demand, battle-pausing overlay opened by click/touch or the `U` key;
 - a seeded Boss Director with the full twelve-Boss ladder from Goblin Brute at 1:30 through Goblin God-King at 30:00, pre-Boss pressure reduction, post-kill relief, rewards, and Ascendant cycles after minute 30;
 - one readable signature skill per Boss, enhanced below 50% HP, with movement counterplay, recovery windows, centralized damage, add spawning, Stagger vulnerability, and Continue state;
 - localized combat HUD, defeat/retry flow, desktop Exit Game button, and in-memory Continue state;

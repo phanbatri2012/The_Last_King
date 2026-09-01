@@ -85,6 +85,7 @@ func _test_project_configuration() -> void:
 		var action_name := "summon_unit_%d" % hotkey_slot
 		_expect(InputMap.has_action(action_name), "Roster summon input action exists: %s" % action_name)
 		_expect(not InputMap.action_get_events(action_name).is_empty(), "Roster summon action has a keyboard binding: %s" % action_name)
+	_expect(InputMap.has_action("toggle_unit_upgrades") and not InputMap.action_get_events("toggle_unit_upgrades").is_empty(), "Unit-upgrade overlay has a PC/Web keyboard shortcut.")
 
 
 func _test_scenes_load() -> void:
@@ -456,7 +457,16 @@ func _test_localization_catalogs() -> void:
 	_expect(not vietnamese.is_empty(), "Vietnamese catalog loads.")
 	for key in english.keys():
 		_expect(vietnamese.has(key), "Vietnamese catalog contains key: %s" % key)
-	_expect(english.get("phase5.skill_card") == "{name}" and vietnamese.get("phase5.skill_card") == "{name}", "Level-up cards hide upgraded-skill descriptions and rank details.")
+	var english_skill_card := str(english.get("phase5.skill_card", ""))
+	var vietnamese_skill_card := str(vietnamese.get("phase5.skill_card", ""))
+	_expect(
+		english_skill_card.contains("{current}") and english_skill_card.contains("{next}") and english_skill_card.contains("{max}") and english_skill_card.contains("{description}"),
+		"English level-up cards expose skill rank progression and description."
+	)
+	_expect(
+		vietnamese_skill_card.contains("{current}") and vietnamese_skill_card.contains("{next}") and vietnamese_skill_card.contains("{max}") and vietnamese_skill_card.contains("{description}"),
+		"Vietnamese level-up cards expose skill rank progression and description."
+	)
 
 
 func _test_platform_adapter() -> void:
@@ -701,12 +711,18 @@ func _test_movement_arena_layout() -> void:
 	_expect(summon_template != null and summon_template.custom_minimum_size.y >= 48.0, "Roster summon buttons meet the touch target baseline.")
 	var army_capacity_label := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/ArmyCapacityLabel") as Label
 	_expect(army_capacity_label != null, "Combat HUD displays the unlimited living army count.")
-	var upgrade_grid := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/UpgradeGrid") as GridContainer
-	_expect(upgrade_grid != null and upgrade_grid.columns == 2, "Combat HUD reserves data-driven unit upgrade controls.")
+	var corner_upgrade_grid := arena.get_node_or_null("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/UpgradeGrid") as GridContainer
+	_expect(corner_upgrade_grid == null, "Persistent unit-upgrade details are removed from the corner summon HUD.")
+	var upgrade_menu_button := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/UpgradeMenuButton") as Button
+	_expect(upgrade_menu_button != null and upgrade_menu_button.custom_minimum_size.y >= 48.0, "The corner HUD keeps one touch-accessible unit-upgrade menu button.")
+	var upgrade_overlay := arena.get_node("HudLayer/UpgradeOverlay") as Control
+	var upgrade_grid := arena.get_node("HudLayer/UpgradeOverlay/Center/Panel/Content/UpgradeGrid") as GridContainer
+	_expect(upgrade_overlay != null and not upgrade_overlay.visible and upgrade_overlay.process_mode == Node.PROCESS_MODE_ALWAYS, "Unit-upgrade details live in an on-demand battle-pausing overlay.")
+	_expect(upgrade_grid != null and upgrade_grid.columns == 2, "The on-demand overlay retains data-driven unit upgrade controls.")
 	var xp_bar := arena.get_node_or_null("HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry/XpBar") as ProgressBar
 	_expect(xp_bar == null, "Screen HUD no longer duplicates King level/XP details.")
 	var first_skill_card := arena.get_node("HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards/SkillCard1") as Button
-	_expect(first_skill_card != null and first_skill_card.custom_minimum_size.y <= 140.0, "Level-up cards are compact after removing upgraded-skill details.")
+	_expect(first_skill_card != null and first_skill_card.custom_minimum_size.y >= 200.0, "Level-up cards reserve enough room for rank and skill descriptions.")
 	var level_overlay := arena.get_node("HudLayer/LevelUpOverlay") as Control
 	_expect(level_overlay != null and level_overlay.process_mode == Node.PROCESS_MODE_ALWAYS, "Level-up choices remain interactive while battle simulation is paused.")
 	_expect(
@@ -1829,6 +1845,10 @@ func _test_desktop_menu_exit_runtime() -> void:
 
 func _test_pause_manager() -> void:
 	var manager := PauseManager.new()
+	manager.request_pause(PauseManager.ARMY_UPGRADE)
+	_expect(manager.is_paused() and manager.get_reasons().has(str(PauseManager.ARMY_UPGRADE)), "The on-demand army-upgrade overlay uses the centralized pause manager.")
+	manager.clear_pause(PauseManager.ARMY_UPGRADE)
+	_expect(not manager.is_paused(), "Closing the army-upgrade overlay releases its pause reason.")
 	manager.request_pause(PauseManager.PLAYER)
 	manager.request_pause(PauseManager.PLATFORM)
 	_expect(manager.is_paused(), "Multiple pause reasons pause the session.")

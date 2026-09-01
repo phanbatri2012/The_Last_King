@@ -318,7 +318,7 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -470.0
-offset_top = -520.0
+offset_top = -390.0
 offset_right = -26.0
 offset_bottom = -26.0
 grow_horizontal = 0
@@ -364,29 +364,13 @@ theme_override_font_sizes/font_size = 13
 theme_override_styles/normal = SubResource("StyleSummonButton")
 text = "phase4.summon_unit"
 
-[node name="UpgradeRosterLabel" type="Label" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent"]
+[node name="UpgradeMenuButton" type="Button" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 48)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.66, 0.9, 1, 1)
 theme_override_font_sizes/font_size = 14
-text = "phase5.upgrade_roster"
-horizontal_alignment = 1
-
-[node name="UpgradeGrid" type="GridContainer" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 6
-columns = 2
-
-[node name="UpgradeButtonTemplate" type="Button" parent="HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/UpgradeGrid"]
-unique_name_in_owner = true
-visible = false
-custom_minimum_size = Vector2(190, 34)
-layout_mode = 2
-theme_override_font_sizes/font_size = 12
 theme_override_styles/normal = SubResource("StyleSummonButton")
-text = "phase5.upgrade_unit"
+text = "phase5.open_upgrades"
 
 [node name="HintMargin" type="MarginContainer" parent="HudLayer/Hud"]
 layout_mode = 1
@@ -434,6 +418,78 @@ theme_override_font_sizes/font_size = 15
 text = "phase2.no_target"
 horizontal_alignment = 1
 autowrap_mode = 2
+
+[node name="UpgradeOverlay" type="Control" parent="HudLayer"]
+process_mode = 3
+unique_name_in_owner = true
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Shade" type="ColorRect" parent="HudLayer/UpgradeOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+color = Color(0.01, 0.02, 0.035, 0.72)
+
+[node name="Center" type="CenterContainer" parent="HudLayer/UpgradeOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="HudLayer/UpgradeOverlay/Center"]
+custom_minimum_size = Vector2(900, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleLevelPanel")
+
+[node name="Content" type="VBoxContainer" parent="HudLayer/UpgradeOverlay/Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="UpgradeRosterLabel" type="Label" parent="HudLayer/UpgradeOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.66, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 28
+text = "phase5.upgrade_roster"
+horizontal_alignment = 1
+
+[node name="UpgradeGrid" type="GridContainer" parent="HudLayer/UpgradeOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 10
+columns = 2
+
+[node name="UpgradeButtonTemplate" type="Button" parent="HudLayer/UpgradeOverlay/Center/Panel/Content/UpgradeGrid"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(390, 54)
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleSummonButton")
+text = "phase5.upgrade_unit"
+
+[node name="UpgradeCloseButton" type="Button" parent="HudLayer/UpgradeOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 52)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBackButton")
+text = "phase5.close_upgrades"
 
 [node name="DeathOverlay" type="Control" parent="HudLayer"]
 unique_name_in_owner = true
@@ -570,27 +626,27 @@ alignment = 1
 
 [node name="SkillCard1" type="Button" parent="HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(315, 120)
+custom_minimum_size = Vector2(315, 220)
 layout_mode = 2
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("StyleSkillCard")
 text = "Skill 1"
 autowrap_mode = 2
 
 [node name="SkillCard2" type="Button" parent="HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(315, 120)
+custom_minimum_size = Vector2(315, 220)
 layout_mode = 2
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("StyleSkillCard")
 text = "Skill 2"
 autowrap_mode = 2
 
 [node name="SkillCard3" type="Button" parent="HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(315, 120)
+custom_minimum_size = Vector2(315, 220)
 layout_mode = 2
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 16
 theme_override_styles/normal = SubResource("StyleSkillCard")
 text = "Skill 3"
 autowrap_mode = 2

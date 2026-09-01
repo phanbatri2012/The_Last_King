@@ -92,6 +92,10 @@ summon_unit_7={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":55)]
 }
+toggle_unit_upgrades={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":85)]
+}
 
 [rendering]
 

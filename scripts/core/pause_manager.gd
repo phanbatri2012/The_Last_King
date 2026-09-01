@@ -9,6 +9,7 @@ const BACKGROUND := &"background"
 const AD := &"ad"
 const SYSTEM := &"system"
 const LEVEL_UP := &"level_up"
+const ARMY_UPGRADE := &"army_upgrade"
 
 var _reasons: Dictionary = {}
 

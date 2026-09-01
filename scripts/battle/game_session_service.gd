@@ -29,6 +29,7 @@ func has_active_session() -> bool:
 
 func start_session(king_id: StringName, faction_id: StringName, seed: int) -> BattleSession:
 	pause_manager.clear_pause(PauseManager.LEVEL_UP)
+	pause_manager.clear_pause(PauseManager.ARMY_UPGRADE)
 	active_session = BattleSession.new()
 	active_session.create(king_id, faction_id, seed)
 	game_clock.reset()
@@ -42,6 +43,7 @@ func end_session(result: Dictionary) -> void:
 		return
 	var ended_session_id := active_session.session_id
 	pause_manager.clear_pause(PauseManager.LEVEL_UP)
+	pause_manager.clear_pause(PauseManager.ARMY_UPGRADE)
 	active_session = null
 	game_clock.reset()
 	session_ended.emit(result)

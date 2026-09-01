@@ -36,9 +36,12 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 @onready var summon_roster_label: Label = %SummonRosterLabel
 @onready var summon_grid: GridContainer = %SummonGrid
 @onready var summon_button_template: Button = %SummonButtonTemplate
+@onready var upgrade_menu_button: Button = %UpgradeMenuButton
+@onready var upgrade_overlay: Control = %UpgradeOverlay
 @onready var upgrade_roster_label: Label = %UpgradeRosterLabel
 @onready var upgrade_grid: GridContainer = %UpgradeGrid
 @onready var upgrade_button_template: Button = %UpgradeButtonTemplate
+@onready var upgrade_close_button: Button = %UpgradeCloseButton
 @onready var control_hint_label: Label = %ControlHintLabel
 @onready var scope_hint_label: Label = %ScopeHintLabel
 @onready var target_label: Label = %TargetLabel
@@ -144,6 +147,8 @@ func _ready() -> void:
 	army_controller.unit_summoned.connect(_on_unit_summoned)
 	army_controller.unit_died.connect(_on_unit_died)
 	army_controller.upgrade_changed.connect(_on_army_upgrade_changed)
+	upgrade_menu_button.pressed.connect(_open_upgrade_overlay)
+	upgrade_close_button.pressed.connect(_close_upgrade_overlay)
 	skill_card_1.pressed.connect(_select_skill_choice.bind(0))
 	skill_card_2.pressed.connect(_select_skill_choice.bind(1))
 	skill_card_3.pressed.connect(_select_skill_choice.bind(2))
@@ -176,6 +181,12 @@ func _physics_process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("toggle_unit_upgrades"):
+		get_viewport().set_input_as_handled()
+		_open_upgrade_overlay()
+		return
+	if upgrade_overlay.visible:
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if _hold_touch_index == -1 and king.is_combat_alive():
 			_hold_mouse_active = true
@@ -220,6 +231,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _exit_tree() -> void:
+	GameSessionService.pause_manager.clear_pause(PauseManager.ARMY_UPGRADE)
 	if not _skip_exit_snapshot:
 		_store_combat_state()
 
@@ -613,7 +625,9 @@ func _refresh_static_text() -> void:
 	control_hint_label.text = LocalizationService.translate_key("phase2.control_hint")
 	scope_hint_label.text = LocalizationService.translate_key("phase2.scope_hint")
 	summon_roster_label.text = LocalizationService.translate_key("phase4.summon_roster")
+	upgrade_menu_button.text = LocalizationService.translate_key("phase5.open_upgrades")
 	upgrade_roster_label.text = LocalizationService.translate_key("phase5.upgrade_roster")
+	upgrade_close_button.text = LocalizationService.translate_key("phase5.close_upgrades")
 	level_up_title_label.text = LocalizationService.translate_key("phase5.level_up_title")
 	level_up_hint_label.text = LocalizationService.translate_key("phase5.level_up_hint")
 	back_button.text = LocalizationService.translate_key("phase2.back_to_menu")
@@ -821,7 +835,24 @@ func _upgrade_unit(unit_id: StringName) -> void:
 	var result := army_controller.try_upgrade(unit_id)
 	if bool(result.get("accepted", false)):
 		_store_combat_state()
+		_refresh_live_text()
+
+
+func _open_upgrade_overlay() -> void:
+	if upgrade_overlay.visible or level_up_overlay.visible or death_overlay.visible or not king.is_combat_alive():
+		return
+	_clear_hold_movement()
+	upgrade_overlay.visible = true
+	GameSessionService.pause_manager.request_pause(PauseManager.ARMY_UPGRADE)
 	_refresh_live_text()
+
+
+func _close_upgrade_overlay() -> void:
+	if not upgrade_overlay.visible:
+		GameSessionService.pause_manager.clear_pause(PauseManager.ARMY_UPGRADE)
+		return
+	upgrade_overlay.visible = false
+	GameSessionService.pause_manager.clear_pause(PauseManager.ARMY_UPGRADE)
 
 
 func _on_army_capacity_changed(_used: int, _maximum: int) -> void:
@@ -848,6 +879,7 @@ func _on_progression_state_changed(_run_level: int, _run_xp: int, _xp_required: 
 
 
 func _on_level_up_started(choices: Array[Dictionary]) -> void:
+	_close_upgrade_overlay()
 	_current_skill_choices = choices.duplicate(true)
 	_refresh_level_up_choices()
 	level_up_overlay.visible = true
@@ -880,11 +912,16 @@ func _refresh_level_up_choices() -> void:
 			"phase5.skill_card",
 			{
 				"name": LocalizationService.translate_key(str(choice.get("name_key", ""))),
+				"current": int(choice.get("current_level", 0)),
+				"next": int(choice.get("current_level", 0)) + 1,
+				"max": int(choice.get("max_level", 0)),
+				"description": LocalizationService.translate_key(str(choice.get("description_key", ""))),
 			}
 		)
 
 
 func _on_king_defeated(_context: Dictionary) -> void:
+	_close_upgrade_overlay()
 	joystick.reset()
 	king.set_virtual_direction(Vector2.ZERO)
 	_clear_hold_movement()
@@ -927,6 +964,7 @@ func _on_locale_changed(_locale: String) -> void:
 func _restart_combat_drill() -> void:
 	_skip_exit_snapshot = true
 	GameSessionService.pause_manager.clear_pause(PauseManager.LEVEL_UP)
+	GameSessionService.pause_manager.clear_pause(PauseManager.ARMY_UPGRADE)
 	var session_seed := int(Time.get_ticks_usec() & 0x7fffffff)
 	GameSessionService.start_session(&"tran_hung_dao", &"dai_viet", session_seed)
 	SceneService.change_scene_to_file("res://scenes/gameplay/movement_arena.tscn")
@@ -942,6 +980,7 @@ func _return_to_menu() -> void:
 	army_controller.set_combat_enabled(false)
 	_store_combat_state()
 	GameSessionService.pause_manager.clear_pause(PauseManager.LEVEL_UP)
+	GameSessionService.pause_manager.clear_pause(PauseManager.ARMY_UPGRADE)
 	SceneService.change_scene_to_file("res://scenes/menus/main_menu.tscn")
 
 
