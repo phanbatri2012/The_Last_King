@@ -3,7 +3,7 @@ extends Node2D
 
 const HEALTH_BAR_FILL_COLOR := Color(0.08, 0.72, 0.94, 1.0)
 const HEALTH_BAR_BORDER_COLOR := Color(1.0, 0.78, 0.2, 1.0)
-const HEALTH_BAR_OFFSET_Y := -64.0
+const HEALTH_BAR_OFFSET_Y := -76.0
 
 var _facing := Vector2.RIGHT
 var _moving := false
@@ -14,6 +14,9 @@ var _heal_pulse := 0.0
 var _heal_amount := 0.0
 var _defeated := false
 var _health_ratio := 1.0
+var _current_health := 1.0
+var _max_health := 1.0
+var _level_text := ""
 var _weapon_kind := "sword"
 
 
@@ -36,7 +39,14 @@ func set_motion(current_velocity: Vector2) -> void:
 
 
 func set_health(current_health: float, max_health: float) -> void:
+	_current_health = maxf(current_health, 0.0)
+	_max_health = maxf(max_health, 1.0)
 	_health_ratio = clampf(current_health / max_health, 0.0, 1.0) if max_health > 0.0 else 0.0
+	queue_redraw()
+
+
+func set_level_text(level_text: String) -> void:
+	_level_text = level_text
 	queue_redraw()
 
 
@@ -125,7 +135,7 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, 46.0 + heal_progress * 18.0, 0.0, TAU, 48, heal_color, 4.0, true)
 		draw_string(
 			ThemeDB.fallback_font,
-			Vector2(-24.0, -74.0 - heal_progress * 20.0),
+			Vector2(-24.0, -104.0 - heal_progress * 20.0),
 			"+%d" % roundi(_heal_amount),
 			HORIZONTAL_ALIGNMENT_CENTER,
 			48.0,
@@ -164,7 +174,8 @@ func _draw_weapon(side: Vector2) -> void:
 
 
 func _draw_health_bar() -> void:
-	var bar_rect := Rect2(-41.0, HEALTH_BAR_OFFSET_Y, 82.0, 10.0)
+	var bar_rect := Rect2(-48.0, HEALTH_BAR_OFFSET_Y, 96.0, 13.0)
+	draw_string(ThemeDB.fallback_font, Vector2(-48.0, HEALTH_BAR_OFFSET_Y - 5.0), _level_text, HORIZONTAL_ALIGNMENT_CENTER, 96.0, 14, Color(1.0, 0.82, 0.28, 1.0))
 	draw_rect(bar_rect, Color(0.015, 0.025, 0.04, 0.94), true)
 	draw_rect(
 		Rect2(bar_rect.position + Vector2(2.0, 2.0), Vector2((bar_rect.size.x - 4.0) * _health_ratio, bar_rect.size.y - 4.0)),
@@ -172,3 +183,4 @@ func _draw_health_bar() -> void:
 		true
 	)
 	draw_rect(bar_rect, HEALTH_BAR_BORDER_COLOR, false, 2.0)
+	draw_string(ThemeDB.fallback_font, Vector2(-48.0, HEALTH_BAR_OFFSET_Y + 11.0), "%d/%d" % [ceili(_current_health), ceili(_max_health)], HORIZONTAL_ALIGNMENT_CENTER, 96.0, 10, Color(0.96, 0.98, 1.0, 1.0))

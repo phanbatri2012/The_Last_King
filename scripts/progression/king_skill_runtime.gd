@@ -11,6 +11,9 @@ var _cooldowns: Dictionary = {}
 var _wave_pulse := 0.0
 var _aura_pulse := 0.0
 var _aura_radius := 0.0
+var _upgrade_pulse := 0.0
+var _upgrade_effect_type := ""
+var _visual_phase := 0.0
 
 
 func _ready() -> void:
@@ -21,8 +24,10 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(_king):
 		return
 	global_position = _king.global_position
+	_visual_phase = fmod(_visual_phase + delta * 4.0, TAU)
 	_wave_pulse = maxf(_wave_pulse - delta * 1.8, 0.0)
 	_aura_pulse = maxf(_aura_pulse - delta * 1.5, 0.0)
+	_upgrade_pulse = maxf(_upgrade_pulse - delta * 0.72, 0.0)
 	queue_redraw()
 	if not _king.is_combat_alive():
 		return
@@ -73,6 +78,9 @@ func set_skill_level(skill_id: StringName, level: int) -> bool:
 	var safe_level := clampi(level, 0, get_max_level(skill_id))
 	_skill_levels[key] = safe_level
 	_cooldowns[key] = minf(float(_cooldowns.get(key, 0.35)), 0.35)
+	var config: Dictionary = _skill_configs.get(key, {})
+	_upgrade_effect_type = str(config.get("effect_type", ""))
+	_upgrade_pulse = 1.0
 	_recompute_passives()
 	return true
 
@@ -206,8 +214,56 @@ func _get_level_data(config: Dictionary, level: int) -> Dictionary:
 func _draw() -> void:
 	if _wave_pulse > 0.0:
 		var wave_progress := 1.0 - _wave_pulse
-		draw_arc(Vector2.ZERO, 48.0 + wave_progress * 42.0, 0.0, TAU, 48, Color(1.0, 0.76, 0.2, _wave_pulse), 4.0, true)
+		var wave_radius := 48.0 + wave_progress * 58.0
+		draw_circle(Vector2.ZERO, wave_radius, Color(1.0, 0.54, 0.08, _wave_pulse * 0.08))
+		draw_arc(Vector2.ZERO, wave_radius, 0.0, TAU, 64, Color(1.0, 0.76, 0.2, _wave_pulse), 6.0, true)
+		draw_arc(Vector2.ZERO, wave_radius * 0.72, -_visual_phase, TAU - _visual_phase, 48, Color(1.0, 0.95, 0.58, _wave_pulse * 0.8), 3.0, true)
+		for ray_index in 8:
+			var direction := Vector2.from_angle(TAU * float(ray_index) / 8.0 + _visual_phase * 0.2)
+			draw_line(direction * 35.0, direction * wave_radius, Color(1.0, 0.7, 0.15, _wave_pulse * 0.65), 3.0, true)
 	if _aura_pulse > 0.0:
 		var aura_progress := 1.0 - _aura_pulse
-		draw_circle(Vector2.ZERO, _aura_radius * minf(aura_progress * 1.8, 1.0), Color(0.18, 0.8, 1.0, _aura_pulse * 0.12))
-		draw_arc(Vector2.ZERO, _aura_radius * minf(aura_progress * 1.8, 1.0), 0.0, TAU, 64, Color(0.4, 0.92, 1.0, _aura_pulse * 0.8), 5.0, true)
+		var aura_radius := _aura_radius * minf(aura_progress * 1.8, 1.0)
+		draw_circle(Vector2.ZERO, aura_radius, Color(0.08, 0.62, 0.96, _aura_pulse * 0.16))
+		draw_arc(Vector2.ZERO, aura_radius, 0.0, TAU, 72, Color(0.4, 0.92, 1.0, _aura_pulse * 0.9), 7.0, true)
+		draw_arc(Vector2.ZERO, aura_radius * 0.72, _visual_phase, _visual_phase + 4.8, 48, Color(0.25, 1.0, 0.68, _aura_pulse), 5.0, true)
+		draw_arc(Vector2.ZERO, aura_radius * 0.52, -_visual_phase, -_visual_phase + 4.5, 48, Color(0.82, 1.0, 0.95, _aura_pulse * 0.9), 4.0, true)
+		var dragon_head := Vector2.from_angle(_visual_phase) * aura_radius * 0.72
+		draw_colored_polygon(PackedVector2Array([dragon_head + Vector2(13.0, 0.0), dragon_head + Vector2(-9.0, -10.0), dragon_head + Vector2(-5.0, 10.0)]), Color(0.35, 1.0, 0.72, _aura_pulse))
+	if _upgrade_pulse > 0.0:
+		_draw_upgrade_effect(1.0 - _upgrade_pulse, _upgrade_pulse)
+
+
+func _draw_upgrade_effect(progress: float, alpha: float) -> void:
+	var radius := 50.0 + progress * 115.0
+	match _upgrade_effect_type:
+		"royal_might":
+			for index in 12:
+				var direction := Vector2.from_angle(TAU * float(index) / 12.0 + _visual_phase * 0.12)
+				draw_line(direction * 42.0, direction * radius, Color(1.0, 0.68, 0.1, alpha), 7.0, true)
+			draw_arc(Vector2.ZERO, radius * 0.68, 0.0, TAU, 56, Color(1.0, 0.9, 0.35, alpha), 5.0, true)
+		"swift_command":
+			for index in 7:
+				var angle := TAU * float(index) / 7.0
+				var direction := Vector2.from_angle(angle)
+				var side := Vector2(-direction.y, direction.x)
+				var tip := direction * radius
+				draw_polyline(PackedVector2Array([tip - direction * 34.0 + side * 13.0, tip, tip - direction * 34.0 - side * 13.0]), Color(0.28, 0.9, 1.0, alpha), 5.0, true)
+		"sovereign_reach":
+			draw_arc(Vector2.ZERO, radius, -2.8, -0.25, 48, Color(0.83, 0.46, 1.0, alpha), 10.0, true)
+			draw_arc(Vector2.ZERO, radius * 0.72, 0.35, 2.75, 48, Color(0.52, 0.76, 1.0, alpha), 7.0, true)
+		"iron_will":
+			var points := PackedVector2Array()
+			for index in 7:
+				points.append(Vector2.from_angle(-PI * 0.5 + TAU * float(index) / 6.0) * radius * 0.72)
+			draw_colored_polygon(points, Color(0.12, 0.55, 1.0, alpha * 0.18))
+			draw_polyline(points, Color(0.48, 0.88, 1.0, alpha), 8.0, true)
+		"piercing_wave":
+			draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, Color(1.0, 0.55, 0.08, alpha), 9.0, true)
+			for index in 8:
+				var direction := Vector2.from_angle(TAU * float(index) / 8.0)
+				draw_line(direction * 35.0, direction * radius, Color(1.0, 0.82, 0.28, alpha), 5.0, true)
+		"dragon_aura":
+			draw_circle(Vector2.ZERO, radius, Color(0.08, 0.7, 0.9, alpha * 0.14))
+			draw_arc(Vector2.ZERO, radius, _visual_phase, _visual_phase + 5.2, 64, Color(0.2, 1.0, 0.64, alpha), 9.0, true)
+			draw_arc(Vector2.ZERO, radius * 0.62, -_visual_phase, -_visual_phase + 5.0, 56, Color(0.58, 0.94, 1.0, alpha), 6.0, true)

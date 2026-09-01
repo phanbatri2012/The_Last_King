@@ -110,6 +110,10 @@ func set_movement_enabled(enabled: bool) -> void:
 		_pointer_direction = Vector2.ZERO
 
 
+func set_level_display(level_text: String) -> void:
+	visual.set_level_text(level_text)
+
+
 func set_movement_bounds(bounds: Rect2) -> void:
 	movement_bounds = bounds.abs()
 	_movement_bounds_enabled = true

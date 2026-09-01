@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The Last King Goblin threat and boss progression",
+  "type": "object",
+  "required": ["schema_version", "content_version", "budget", "scaling", "platform_caps", "difficulty", "phases", "bosses", "ascendant"],
+  "properties": {
+    "schema_version": {"type": "integer", "minimum": 1},
+    "content_version": {"type": "string", "minLength": 1},
+    "budget": {"type": "object"},
+    "scaling": {"type": "object"},
+    "platform_caps": {"type": "object", "required": ["web", "youtube_playables", "android", "ios", "desktop"]},
+    "difficulty": {"type": "object", "required": ["normal", "hard", "nightmare", "hell"]},
+    "phases": {
+      "type": "array",
+      "minItems": 11,
+      "items": {
+        "type": "object",
+        "required": ["id", "start_time", "end_time", "target_active_min", "target_active_max", "allowed_enemy_ids", "elite_density", "support_budget_ratio"]
+      }
+    },
+    "bosses": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": ["id", "name_key", "tier", "appearance_time", "base_enemy_id", "base_hp", "base_damage", "hp_multiplier", "damage_multiplier", "stagger_resistance", "signature_skill_id", "signature", "rewards"]
+      }
+    },
+    "ascendant": {"type": "object"}
+  },
+  "additionalProperties": false
+}

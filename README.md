@@ -4,7 +4,7 @@ Top-down historical-fantasy survivor with army building, roguelite runs, and per
 
 Rise as a legendary ruler, survive enemy hordes, command ancient armies, collect gold, unlock skills, summon iconic warriors, and defeat colossal bosses.
 
-## Phase 5 King progression status
+## Phase 6 Goblin threat and Boss progression status
 
 This repository contains the technical foundation and the first playable combat slice:
 
@@ -14,15 +14,17 @@ This repository contains the technical foundation and the first playable combat 
 - English (US) canonical localization with Vietnamese support;
 - open-ended faction roster data;
 - data-driven Trần Hưng Đạo placeholder King;
-- cyan-and-gold overhead King health bar, visually distinct from red enemy health bars;
+- cyan-and-gold overhead King health bar with numeric HP and localized Run Level above the King, with duplicate health/level telemetry removed from the screen HUD;
 - data-driven sword/blade versus bow/crossbow balance bands with King-specific attack ranges;
 - procedurally tiled infinite battlefield with a smooth unbounded camera;
 - normalized WASD/Arrow Keys and analog pointer/touch joystick movement;
-- four data-driven Goblin archetypes: Raider, Brute, Archer, and Hexer;
+- fourteen data-driven Goblin archetypes, including the complete Basic/Runner/Shield/Archer/Bomber/Shaman/Berserker/Champion/Wolf Rider/Warlock/Royal Guard/Demonized progression while retaining Brute and Hexer stable IDs;
 - per-archetype health, armor, magic resistance, movement speed, hatred range, attack range, damage, and attack speed;
 - melee/ranged and physical/magic enemy combat through the shared damage resolver;
 - idle-until-alerted Goblins that engage only inside their hatred range or after the King attacks them;
-- unlimited lifetime spawning with a denser active population that grows gradually from 14 to a hard cap of 24;
+- a seeded 15-second Threat Budget Director with eleven timed phases, role unlocks, special/support budget limits, quadratic HP/damage escalation, capped speed, and platform-specific soft/hard caps;
+- hatred ranges doubled for the four existing Goblin archetypes, with role-specific hatred ranges for every new archetype;
+- quality/elite escalation when actor counts reach the platform soft cap, so Endless threat continues without requiring unbounded actor counts;
 - nearest-target selection and automatic King attacks whose melee arcs and ranged projectiles pierce every target along their path;
 - one shared damage resolver for King and enemy damage;
 - bright run Gold drops, collection through one reward service, and a yellow HUD counter;
@@ -39,13 +41,15 @@ This repository contains the technical foundation and the first playable combat 
 - mouse-hold and touch-hold movement across the battlefield alongside WASD and the virtual joystick;
 - Continue snapshots for uncollected Healing Orbs and deterministic healing-drop RNG;
 - XP rewards for every Goblin archetype, increasing per-level XP thresholds, and three seeded skill choices whenever the King levels up;
-- six three-rank King skills covering damage, attack/movement speed, reach, health/defense, unlimited-piercing royal waves, and periodic area damage;
-- a battle-pausing bilingual level-up overlay plus Continue snapshots for XP, Run Level, skill ranks, skill-choice RNG, and army upgrades;
+- six three-rank King skills covering damage, attack/movement speed, reach, health/defense, unlimited-piercing royal waves, and periodic area damage, now with distinct upgrade/cast effects;
+- a compact battle-pausing bilingual level-up overlay that shows only skill names, plus Continue snapshots for XP, Run Level, skill ranks, skill-choice RNG, and army upgrades;
+- a seeded Boss Director with the full twelve-Boss ladder from Goblin Brute at 1:30 through Goblin God-King at 30:00, pre-Boss pressure reduction, post-kill relief, rewards, and Ascendant cycles after minute 30;
+- one readable signature skill per Boss, enhanced below 50% HP, with movement counterplay, recovery windows, centralized damage, add spawning, Stagger vulnerability, and Continue state;
 - localized combat HUD, defeat/retry flow, desktop Exit Game button, and in-memory Continue state;
 - desktop and web export presets;
 - headless smoke tests.
 
-Persistent account progression, bosses, manual skill activation, and polished historical art remain later slices.
+Persistent account progression, manual skill activation, destructible Boss objectives, and polished historical art remain later slices.
 
 ## Toolchain
 

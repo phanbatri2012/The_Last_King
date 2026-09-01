@@ -106,7 +106,7 @@ func set_enemy_combat_state(
 	if active_session == null:
 		return
 	active_session.enemy_wave_state = {
-		"encounter_id": "phase4_survival_projectiles",
+		"encounter_id": "phase6_goblin_threat",
 		"living_enemies": living_enemies.duplicate(true),
 		"spawn_runtime_state": spawn_runtime_state.duplicate(true),
 		"gold_pickups": gold_pickups.duplicate(true),
@@ -120,6 +120,22 @@ func get_enemy_combat_state() -> Dictionary:
 	if active_session == null:
 		return {}
 	return active_session.enemy_wave_state.duplicate(true)
+
+
+func set_boss_state(director_state: Dictionary, active_bosses: Array[Dictionary], next_add_serial: int) -> void:
+	if active_session == null:
+		return
+	active_session.boss_state = {
+		"director_state": director_state.duplicate(true),
+		"active_bosses": active_bosses.duplicate(true),
+		"next_add_serial": maxi(next_add_serial, 1),
+	}
+
+
+func get_boss_state() -> Dictionary:
+	if active_session == null:
+		return {}
+	return active_session.boss_state.duplicate(true)
 
 
 func set_army_state(units: Array[Dictionary]) -> void:

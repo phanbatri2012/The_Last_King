@@ -1,112 +1,20 @@
 {
-  "schema_version": 2,
-  "content_version": "phase5.0",
+  "schema_version": 3,
+  "content_version": "phase6.0",
   "enemies": [
-    {
-      "id": "goblin",
-      "name_key": "enemy.goblin.name",
-      "status": "active",
-      "combat_role": "melee_physical",
-      "health": {"max": 90.0},
-      "defense": {"armor": 4.0, "magic_resistance": 1.0},
-      "movement": {"speed": 115.0, "collision_radius": 24.0, "aggro_range": 520.0},
-      "attack": {
-        "damage": 22.0,
-        "damage_type": "physical",
-        "attack_style": "melee",
-        "range": 72.0,
-        "attacks_per_second": 0.87
-      },
-      "presentation": {"visual_kind": "raider", "body_color": "#4b922f", "accent_color": "#9d5a25"},
-      "spawn": {"weight": 42.0},
-      "rewards": {
-        "run_gold": 3,
-        "run_xp": 5,
-        "healing_orb": {"chance": 0.06, "max_health_fraction": 0.12}
-      }
-    },
-    {
-      "id": "goblin_brute",
-      "name_key": "enemy.goblin_brute.name",
-      "status": "active",
-      "combat_role": "melee_physical_tank",
-      "health": {"max": 170.0},
-      "defense": {"armor": 12.0, "magic_resistance": 4.0},
-      "movement": {"speed": 76.0, "collision_radius": 29.0, "aggro_range": 430.0},
-      "attack": {
-        "damage": 34.0,
-        "damage_type": "physical",
-        "attack_style": "melee",
-        "range": 82.0,
-        "attacks_per_second": 0.56
-      },
-      "presentation": {"visual_kind": "brute", "body_color": "#47702d", "accent_color": "#b48132"},
-      "spawn": {"weight": 18.0},
-      "rewards": {
-        "run_gold": 6,
-        "run_xp": 10,
-        "healing_orb": {"chance": 0.15, "max_health_fraction": 0.18}
-      }
-    },
-    {
-      "id": "goblin_archer",
-      "name_key": "enemy.goblin_archer.name",
-      "status": "active",
-      "combat_role": "ranged_physical",
-      "health": {"max": 70.0},
-      "defense": {"armor": 2.0, "magic_resistance": 2.0},
-      "movement": {"speed": 96.0, "collision_radius": 22.0, "aggro_range": 780.0},
-      "attack": {
-        "damage": 16.0,
-        "damage_type": "physical",
-        "attack_style": "ranged",
-        "range": 430.0,
-        "attacks_per_second": 0.72,
-        "windup": 0.36,
-        "projectile": {
-          "speed": 620.0,
-          "radius": 5.0,
-          "lifetime": 1.2,
-          "visual_kind": "arrow"
-        }
-      },
-      "presentation": {"visual_kind": "archer", "body_color": "#6c9b37", "accent_color": "#d0a23c"},
-      "spawn": {"weight": 25.0},
-      "rewards": {
-        "run_gold": 4,
-        "run_xp": 6,
-        "healing_orb": {"chance": 0.09, "max_health_fraction": 0.14}
-      }
-    },
-    {
-      "id": "goblin_hexer",
-      "name_key": "enemy.goblin_hexer.name",
-      "status": "active",
-      "combat_role": "ranged_magic",
-      "health": {"max": 78.0},
-      "defense": {"armor": 1.0, "magic_resistance": 10.0},
-      "movement": {"speed": 88.0, "collision_radius": 23.0, "aggro_range": 680.0},
-      "attack": {
-        "damage": 20.0,
-        "damage_type": "magic",
-        "attack_style": "ranged",
-        "range": 350.0,
-        "attacks_per_second": 0.62,
-        "windup": 0.48,
-        "projectile": {
-          "speed": 420.0,
-          "radius": 10.0,
-          "lifetime": 1.35,
-          "visual_kind": "magic_orb"
-        }
-      },
-      "presentation": {"visual_kind": "hexer", "body_color": "#526c35", "accent_color": "#a65ce0"},
-      "spawn": {"weight": 15.0},
-      "rewards": {
-        "run_gold": 5,
-        "run_xp": 8,
-        "healing_orb": {"chance": 0.1, "max_health_fraction": 0.15}
-      }
-    }
+    {"id":"goblin","name_key":"enemy.goblin.name","status":"active","combat_role":"swarm","health":{"max":30.0},"defense":{"armor":0.0,"magic_resistance":0.0},"movement":{"speed":112.0,"collision_radius":21.0,"aggro_range":1040.0},"attack":{"damage":6.0,"damage_type":"physical","attack_style":"melee","range":62.0,"attacks_per_second":0.83},"presentation":{"visual_kind":"raider","body_color":"#4b922f","accent_color":"#9d5a25","scale":0.9},"spawn":{"weight":42.0,"cost":1,"unlock_minute":0.0,"tags":["basic","swarm"]},"ability":{"kind":"none"},"rewards":{"run_gold":2,"run_xp":2,"healing_orb":{"chance":0.04,"max_health_fraction":0.1}}},
+    {"id":"goblin_runner","name_key":"enemy.goblin_runner.name","status":"active","combat_role":"flanker","health":{"max":22.0},"defense":{"armor":0.0,"magic_resistance":0.0},"movement":{"speed":172.0,"collision_radius":19.0,"aggro_range":1220.0},"attack":{"damage":5.0,"damage_type":"physical","attack_style":"melee","range":58.0,"attacks_per_second":1.25},"presentation":{"visual_kind":"runner","body_color":"#78b43d","accent_color":"#e18d2b","scale":0.82},"spawn":{"weight":26.0,"cost":1,"unlock_minute":1.0,"tags":["basic","mobile"]},"ability":{"kind":"flank","target_priority":"support"},"rewards":{"run_gold":2,"run_xp":2,"healing_orb":{"chance":0.04,"max_health_fraction":0.1}}},
+    {"id":"goblin_shield","name_key":"enemy.goblin_shield.name","status":"active","combat_role":"frontline","health":{"max":72.0},"defense":{"armor":12.0,"magic_resistance":2.0},"movement":{"speed":82.0,"collision_radius":25.0,"aggro_range":940.0},"attack":{"damage":8.0,"damage_type":"physical","attack_style":"melee","range":66.0,"attacks_per_second":0.72},"presentation":{"visual_kind":"shield","body_color":"#527e32","accent_color":"#85939a","scale":1.0},"spawn":{"weight":18.0,"cost":2,"unlock_minute":2.0,"tags":["frontline","armored"]},"ability":{"kind":"frontal_guard","ranged_damage_multiplier":0.55},"rewards":{"run_gold":4,"run_xp":5,"healing_orb":{"chance":0.08,"max_health_fraction":0.12}}},
+    {"id":"goblin_archer","name_key":"enemy.goblin_archer.name","status":"active","combat_role":"ranged_physical","health":{"max":34.0},"defense":{"armor":1.0,"magic_resistance":1.0},"movement":{"speed":96.0,"collision_radius":20.0,"aggro_range":1560.0},"attack":{"damage":7.0,"damage_type":"physical","attack_style":"ranged","range":430.0,"attacks_per_second":0.72,"windup":0.4,"projectile":{"speed":620.0,"radius":5.0,"lifetime":1.2,"visual_kind":"arrow"}},"presentation":{"visual_kind":"archer","body_color":"#6c9b37","accent_color":"#d0a23c","scale":0.9},"spawn":{"weight":22.0,"cost":2,"unlock_minute":2.25,"tags":["ranged"]},"ability":{"kind":"keep_distance"},"rewards":{"run_gold":4,"run_xp":5,"healing_orb":{"chance":0.07,"max_health_fraction":0.12}}},
+    {"id":"goblin_bomber","name_key":"enemy.goblin_bomber.name","status":"active","combat_role":"special_bomber","health":{"max":38.0},"defense":{"armor":1.0,"magic_resistance":1.0},"movement":{"speed":138.0,"collision_radius":21.0,"aggro_range":1280.0},"attack":{"damage":20.0,"damage_type":"physical","attack_style":"melee","range":72.0,"attacks_per_second":0.45},"presentation":{"visual_kind":"bomber","body_color":"#6f8e31","accent_color":"#e14b24","scale":0.92},"spawn":{"weight":10.0,"cost":3,"unlock_minute":3.0,"tags":["special"]},"ability":{"kind":"suicide_blast","radius":112.0},"rewards":{"run_gold":6,"run_xp":8,"healing_orb":{"chance":0.1,"max_health_fraction":0.14}}},
+    {"id":"goblin_shaman","name_key":"enemy.goblin_shaman.name","status":"active","combat_role":"support","health":{"max":48.0},"defense":{"armor":0.0,"magic_resistance":9.0},"movement":{"speed":84.0,"collision_radius":22.0,"aggro_range":1420.0},"attack":{"damage":7.0,"damage_type":"magic","attack_style":"ranged","range":340.0,"attacks_per_second":0.55,"windup":0.55,"projectile":{"speed":390.0,"radius":9.0,"lifetime":1.45,"visual_kind":"magic_orb"}},"presentation":{"visual_kind":"shaman","body_color":"#4d7839","accent_color":"#4ee0b7","scale":0.96},"spawn":{"weight":8.0,"cost":4,"unlock_minute":3.25,"tags":["support","ranged"]},"ability":{"kind":"haste_aura","radius":250.0,"attack_speed_multiplier":1.3,"move_speed_multiplier":1.2},"rewards":{"run_gold":8,"run_xp":10,"healing_orb":{"chance":0.14,"max_health_fraction":0.15}}},
+    {"id":"goblin_brute","name_key":"enemy.goblin_brute.name","status":"active","combat_role":"melee_physical_tank","health":{"max":118.0},"defense":{"armor":10.0,"magic_resistance":3.0},"movement":{"speed":76.0,"collision_radius":29.0,"aggro_range":860.0},"attack":{"damage":14.0,"damage_type":"physical","attack_style":"melee","range":82.0,"attacks_per_second":0.56},"presentation":{"visual_kind":"brute","body_color":"#47702d","accent_color":"#b48132","scale":1.08},"spawn":{"weight":12.0,"cost":4,"unlock_minute":4.0,"tags":["elite","frontline"]},"ability":{"kind":"heavy"},"rewards":{"run_gold":7,"run_xp":10,"healing_orb":{"chance":0.14,"max_health_fraction":0.16}}},
+    {"id":"goblin_berserker","name_key":"enemy.goblin_berserker.name","status":"active","combat_role":"elite_melee","health":{"max":94.0},"defense":{"armor":5.0,"magic_resistance":2.0},"movement":{"speed":124.0,"collision_radius":25.0,"aggro_range":1180.0},"attack":{"damage":13.0,"damage_type":"physical","attack_style":"melee","range":74.0,"attacks_per_second":0.85},"presentation":{"visual_kind":"berserker","body_color":"#7a8f2e","accent_color":"#ed3b25","scale":1.02},"spawn":{"weight":11.0,"cost":4,"unlock_minute":4.0,"tags":["elite"]},"ability":{"kind":"low_health_frenzy","threshold":0.5,"attack_speed_multiplier":1.65},"rewards":{"run_gold":8,"run_xp":11,"healing_orb":{"chance":0.13,"max_health_fraction":0.16}}},
+    {"id":"goblin_champion","name_key":"enemy.goblin_champion.name","status":"active","combat_role":"elite_tank","health":{"max":185.0},"defense":{"armor":20.0,"magic_resistance":8.0},"movement":{"speed":68.0,"collision_radius":31.0,"aggro_range":980.0},"attack":{"damage":17.0,"damage_type":"physical","attack_style":"melee","range":88.0,"attacks_per_second":0.5},"presentation":{"visual_kind":"champion","body_color":"#425d34","accent_color":"#e0b64b","scale":1.18},"spawn":{"weight":6.0,"cost":8,"unlock_minute":4.5,"tags":["elite","frontline","armored"]},"ability":{"kind":"knockback_resist"},"rewards":{"run_gold":14,"run_xp":20,"healing_orb":{"chance":0.2,"max_health_fraction":0.19}}},
+    {"id":"goblin_hexer","name_key":"enemy.goblin_hexer.name","status":"active","combat_role":"ranged_magic","health":{"max":52.0},"defense":{"armor":1.0,"magic_resistance":10.0},"movement":{"speed":88.0,"collision_radius":23.0,"aggro_range":1360.0},"attack":{"damage":10.0,"damage_type":"magic","attack_style":"ranged","range":350.0,"attacks_per_second":0.62,"windup":0.48,"projectile":{"speed":420.0,"radius":10.0,"lifetime":1.35,"visual_kind":"magic_orb"}},"presentation":{"visual_kind":"hexer","body_color":"#526c35","accent_color":"#a65ce0","scale":0.96},"spawn":{"weight":9.0,"cost":4,"unlock_minute":5.0,"tags":["special","ranged"]},"ability":{"kind":"hex_projectile"},"rewards":{"run_gold":7,"run_xp":10,"healing_orb":{"chance":0.12,"max_health_fraction":0.15}}},
+    {"id":"goblin_wolf_rider","name_key":"enemy.goblin_wolf_rider.name","status":"active","combat_role":"mobile_hunter","health":{"max":128.0},"defense":{"armor":6.0,"magic_resistance":3.0},"movement":{"speed":188.0,"collision_radius":28.0,"aggro_range":1660.0},"attack":{"damage":15.0,"damage_type":"physical","attack_style":"melee","range":78.0,"attacks_per_second":1.05},"presentation":{"visual_kind":"wolf_rider","body_color":"#637b35","accent_color":"#87919b","scale":1.12},"spawn":{"weight":8.0,"cost":5,"unlock_minute":8.0,"tags":["elite","mobile"]},"ability":{"kind":"flank","target_priority":"support"},"rewards":{"run_gold":10,"run_xp":16,"healing_orb":{"chance":0.16,"max_health_fraction":0.17}}},
+    {"id":"goblin_warlock","name_key":"enemy.goblin_warlock.name","status":"active","combat_role":"caster","health":{"max":106.0},"defense":{"armor":2.0,"magic_resistance":18.0},"movement":{"speed":78.0,"collision_radius":25.0,"aggro_range":1740.0},"attack":{"damage":16.0,"damage_type":"magic","attack_style":"ranged","range":420.0,"attacks_per_second":0.48,"windup":0.62,"projectile":{"speed":360.0,"radius":13.0,"lifetime":1.65,"visual_kind":"magic_orb"}},"presentation":{"visual_kind":"warlock","body_color":"#394d37","accent_color":"#b538d1","scale":1.04},"spawn":{"weight":6.0,"cost":6,"unlock_minute":9.0,"tags":["special","support","ranged"]},"ability":{"kind":"curse_projectile"},"rewards":{"run_gold":12,"run_xp":20,"healing_orb":{"chance":0.18,"max_health_fraction":0.18}}},
+    {"id":"goblin_royal_guard","name_key":"enemy.goblin_royal_guard.name","status":"active","combat_role":"heavy_elite","health":{"max":260.0},"defense":{"armor":28.0,"magic_resistance":13.0},"movement":{"speed":72.0,"collision_radius":32.0,"aggro_range":1100.0},"attack":{"damage":22.0,"damage_type":"physical","attack_style":"melee","range":92.0,"attacks_per_second":0.62},"presentation":{"visual_kind":"royal_guard","body_color":"#315b36","accent_color":"#e4bd42","scale":1.22},"spawn":{"weight":4.0,"cost":9,"unlock_minute":12.0,"tags":["elite","frontline","armored"]},"ability":{"kind":"royal_guard"},"rewards":{"run_gold":18,"run_xp":28,"healing_orb":{"chance":0.22,"max_health_fraction":0.2}}},
+    {"id":"goblin_demonized","name_key":"enemy.goblin_demonized.name","status":"active","combat_role":"ascendant","health":{"max":320.0},"defense":{"armor":20.0,"magic_resistance":22.0},"movement":{"speed":132.0,"collision_radius":29.0,"aggro_range":1840.0},"attack":{"damage":30.0,"damage_type":"magic","attack_style":"melee","range":86.0,"attacks_per_second":0.92},"presentation":{"visual_kind":"demonized","body_color":"#4d2639","accent_color":"#ff493b","scale":1.16},"spawn":{"weight":3.0,"cost":10,"unlock_minute":20.0,"tags":["ascendant","elite","special"]},"ability":{"kind":"corruption_death","radius":130.0},"rewards":{"run_gold":24,"run_xp":38,"healing_orb":{"chance":0.25,"max_health_fraction":0.22}}}
   ]
 }

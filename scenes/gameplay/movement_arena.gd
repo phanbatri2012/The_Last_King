@@ -1,6 +1,7 @@
 extends Node2D
 
 const GOBLIN_SCENE := preload("res://scenes/gameplay/goblin.tscn")
+const BOSS_SCENE := preload("res://scenes/gameplay/boss.tscn")
 const RUN_GOLD_PICKUP_SCENE := preload("res://scenes/gameplay/run_gold_pickup.tscn")
 const HEALING_ORB_PICKUP_SCENE := preload("res://scenes/gameplay/healing_orb_pickup.tscn")
 const KING_SPAWN := Vector2.ZERO
@@ -15,6 +16,7 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 
 @onready var backdrop: MovementArenaBackdrop = %Backdrop
 @onready var enemy_spawn_director: EnemySpawnDirector = %EnemySpawnDirector
+@onready var boss_director: BossDirector = %BossDirector
 @onready var combat_drop_director: CombatDropDirector = %CombatDropDirector
 @onready var projectile_pool: EnemyProjectilePool = %EnemyProjectilePool
 @onready var ally_projectile_pool: AllyProjectilePool = %AllyProjectilePool
@@ -28,12 +30,8 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 @onready var king_title_label: Label = %KingTitleLabel
 @onready var position_label: Label = %PositionLabel
 @onready var time_label: Label = %TimeLabel
-@onready var king_health_label: Label = %KingHealthLabel
-@onready var king_health_bar: ProgressBar = %KingHealthBar
 @onready var enemy_count_label: Label = %EnemyCountLabel
 @onready var run_gold_label: Label = %RunGoldLabel
-@onready var level_xp_label: Label = %LevelXpLabel
-@onready var xp_bar: ProgressBar = %XpBar
 @onready var army_capacity_label: Label = %ArmyCapacityLabel
 @onready var summon_roster_label: Label = %SummonRosterLabel
 @onready var summon_grid: GridContainer = %SummonGrid
@@ -59,12 +57,16 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 
 var _king_config: Dictionary = {}
 var _enemy_configs: Dictionary = {}
+var _boss_configs: Dictionary = {}
+var _threat_config: Dictionary = {}
 var _unit_configs: Dictionary = {}
 var _skill_configs: Dictionary = {}
 var _training_enemies: Dictionary = {}
+var _active_bosses: Dictionary = {}
 var _gold_pickups: Dictionary = {}
 var _healing_pickups: Dictionary = {}
 var _next_pickup_serial := 1
+var _next_boss_add_serial := 1
 var _snapshot_accumulator := 0.0
 var _density_rebalance_accumulator := 0.0
 var _skip_exit_snapshot := false
@@ -126,6 +128,7 @@ func _ready() -> void:
 	_build_upgrade_controls()
 	_configure_infinite_world()
 	enemy_spawn_director.spawn_requested.connect(_on_spawn_requested)
+	boss_director.boss_spawn_requested.connect(_on_boss_spawn_requested)
 	_restore_or_create_training_encounter()
 
 	joystick.direction_changed.connect(king.set_virtual_direction)
@@ -156,7 +159,10 @@ func _physics_process(delta: float) -> void:
 	_update_hold_move_direction()
 	if king.is_combat_alive():
 		GameSessionService.advance(delta)
-		enemy_spawn_director.ensure_population(_living_enemy_count(), _get_elapsed_time())
+		var elapsed_time := _get_elapsed_time()
+		boss_director.update(elapsed_time, not _active_bosses.is_empty())
+		enemy_spawn_director.set_pressure_multiplier(boss_director.get_pressure_multiplier(elapsed_time, not _active_bosses.is_empty()))
+		enemy_spawn_director.ensure_population(_living_enemy_count(), elapsed_time)
 		_density_rebalance_accumulator += delta
 		if _density_rebalance_accumulator >= DENSITY_REBALANCE_INTERVAL_SEC:
 			_density_rebalance_accumulator = 0.0
@@ -231,6 +237,8 @@ func _configure_infinite_world() -> void:
 
 func _load_enemy_configs() -> void:
 	_enemy_configs.clear()
+	_boss_configs.clear()
+	_threat_config = ContentDatabase.get_goblin_threat_progression()
 	var spawn_roster: Array[Dictionary] = []
 	for enemy_id in ContentDatabase.get_enemy_ids():
 		var enemy_config := ContentDatabase.get_enemy(StringName(enemy_id))
@@ -238,8 +246,21 @@ func _load_enemy_configs() -> void:
 			continue
 		_enemy_configs[enemy_id] = enemy_config
 		var spawn_data: Dictionary = enemy_config.get("spawn", {})
-		spawn_roster.append({"enemy_id": enemy_id, "weight": float(spawn_data.get("weight", 1.0))})
+		spawn_roster.append({
+			"enemy_id": enemy_id,
+			"weight": float(spawn_data.get("weight", 1.0)),
+			"cost": int(spawn_data.get("cost", 1)),
+			"unlock_minute": float(spawn_data.get("unlock_minute", 0.0)),
+			"tags": spawn_data.get("tags", []).duplicate(),
+		})
+	for boss_config in ContentDatabase.get_goblin_bosses():
+		_boss_configs[str(boss_config.get("id", ""))] = boss_config
 	enemy_spawn_director.set_spawn_roster(spawn_roster)
+	enemy_spawn_director.set_threat_config(
+		_threat_config,
+		PlatformService.get_platform_name(),
+		GameSessionService.active_session.difficulty
+	)
 
 
 func _load_unit_configs() -> void:
@@ -313,15 +334,29 @@ func _build_upgrade_controls() -> void:
 
 func _restore_or_create_training_encounter() -> void:
 	var state := GameSessionService.get_enemy_combat_state()
+	var boss_state := GameSessionService.get_boss_state()
 	var spawn_runtime_state: Dictionary = state.get("spawn_runtime_state", {})
 	enemy_spawn_director.configure(GameSessionService.active_session.seed, king, spawn_runtime_state)
+	boss_director.configure(
+		GameSessionService.active_session.seed,
+		_threat_config,
+		king,
+		GameSessionService.active_session.difficulty,
+		boss_state.get("director_state", {})
+	)
+	_next_boss_add_serial = maxi(int(boss_state.get("next_add_serial", 1)), 1)
+	var active_bosses_value: Variant = boss_state.get("active_bosses", [])
+	if active_bosses_value is Array:
+		for boss_snapshot in active_bosses_value:
+			if boss_snapshot is Dictionary:
+				_restore_boss(boss_snapshot)
 	combat_drop_director.configure(
 		GameSessionService.active_session.seed,
 		state.get("drop_runtime_state", {})
 	)
 	_next_pickup_serial = maxi(int(state.get("next_pickup_serial", 1)), 1)
 	var encounter_id := str(state.get("encounter_id", ""))
-	if encounter_id in ["phase2_combat_drill", "phase2_endless_combat", "phase3_endless_goblins", "phase4_survival_projectiles"]:
+	if encounter_id in ["phase2_combat_drill", "phase2_endless_combat", "phase3_endless_goblins", "phase4_survival_projectiles", "phase6_goblin_threat"]:
 		var living_value: Variant = state.get("living_enemies", [])
 		if living_value is Array:
 			for snapshot_value in living_value:
@@ -358,8 +393,25 @@ func _restore_goblin(snapshot: Dictionary) -> void:
 		enemy_id,
 		restored_position,
 		float(snapshot.get("health", -1.0)),
-		bool(snapshot.get("engaged", false))
+		bool(snapshot.get("engaged", false)),
+		snapshot.get("runtime_modifiers", {})
 	)
+
+
+func _restore_boss(snapshot: Dictionary) -> void:
+	var boss_id := str(snapshot.get("boss_id", snapshot.get("enemy_id", "")))
+	var boss_config: Dictionary = _boss_configs.get(boss_id, {})
+	if boss_config.is_empty():
+		return
+	var position_data: Dictionary = snapshot.get("position", {})
+	_create_boss({
+		"instance_id": str(snapshot.get("instance_id", "")),
+		"boss_id": boss_id,
+		"boss_config": boss_config,
+		"position": Vector2(float(position_data.get("x", king.global_position.x)), float(position_data.get("y", king.global_position.y))),
+		"ascendant_cycle": int(snapshot.get("ascendant_cycle", 0)),
+		"runtime_modifiers": snapshot.get("runtime_modifiers", {}),
+	}, snapshot)
 
 
 func _restore_gold_pickup(snapshot: Dictionary) -> void:
@@ -395,7 +447,8 @@ func _create_goblin(
 	enemy_id: StringName,
 	world_position: Vector2,
 	restored_health: float,
-	restored_engaged: bool = false
+	restored_engaged: bool = false,
+	runtime_modifiers: Dictionary = {}
 ) -> void:
 	if _training_enemies.has(instance_key) and is_instance_valid(_training_enemies[instance_key]):
 		return
@@ -410,11 +463,46 @@ func _create_goblin(
 		return
 	goblin.global_position = world_position
 	add_child(goblin)
-	goblin.configure(enemy_config, instance_key, restored_health, restored_engaged)
+	goblin.configure(enemy_config, instance_key, restored_health, restored_engaged, runtime_modifiers)
 	goblin.set_target(king)
 	goblin.defeated.connect(_on_enemy_defeated)
 	goblin.projectile_requested.connect(projectile_pool.request_projectile)
 	_training_enemies[instance_key] = goblin
+
+
+func _create_boss(request: Dictionary, restored_snapshot: Dictionary = {}) -> void:
+	var instance_key := str(request.get("instance_id", ""))
+	if instance_key.is_empty() or (_active_bosses.has(instance_key) and is_instance_valid(_active_bosses[instance_key])):
+		return
+	var boss_config: Dictionary = request.get("boss_config", {})
+	var boss_id := str(request.get("boss_id", boss_config.get("id", "")))
+	if boss_config.is_empty():
+		boss_config = _boss_configs.get(boss_id, {})
+	var base_enemy_config: Dictionary = _enemy_configs.get(str(boss_config.get("base_enemy_id", "goblin_brute")), {})
+	if boss_config.is_empty() or base_enemy_config.is_empty():
+		push_error("Boss config could not be resolved: %s" % boss_id)
+		return
+	var boss := BOSS_SCENE.instantiate() as BossController
+	if boss == null:
+		push_error("Boss scene could not be instantiated.")
+		return
+	boss.global_position = request.get("position", king.global_position + Vector2(720.0, 0.0))
+	add_child(boss)
+	var runtime: Dictionary = request.get("runtime_modifiers", {}).duplicate(true)
+	runtime["ascendant_cycle"] = int(request.get("ascendant_cycle", restored_snapshot.get("ascendant_cycle", 0)))
+	boss.configure_boss(
+		boss_config,
+		base_enemy_config,
+		instance_key,
+		LocalizationService.translate_key(str(boss_config.get("name_key", boss_id))),
+		runtime,
+		restored_snapshot
+	)
+	boss.set_target(king)
+	boss.defeated.connect(_on_enemy_defeated)
+	boss.projectile_requested.connect(projectile_pool.request_projectile)
+	boss.boss_add_requested.connect(_on_boss_add_requested)
+	_active_bosses[instance_key] = boss
 
 
 func _create_gold_pickup(pickup_id: String, world_position: Vector2, amount: int) -> void:
@@ -477,6 +565,16 @@ func _store_combat_state() -> void:
 		healing_pickup_snapshots,
 		combat_drop_director.get_runtime_snapshot()
 	)
+	var active_boss_snapshots: Array[Dictionary] = []
+	for boss_value in _active_bosses.values():
+		var boss := boss_value as BossController
+		if is_instance_valid(boss) and boss.is_combat_alive():
+			active_boss_snapshots.append(boss.get_combat_snapshot())
+	GameSessionService.set_boss_state(
+		boss_director.get_runtime_snapshot(),
+		active_boss_snapshots,
+		_next_boss_add_serial
+	)
 	GameSessionService.set_army_state(army_controller.get_army_snapshot())
 	GameSessionService.set_army_upgrade_state(army_controller.get_upgrade_levels())
 
@@ -537,12 +635,11 @@ func _refresh_live_text() -> void:
 		"phase2.session_time",
 		{"time": snappedf(elapsed_time, 0.1)}
 	)
-	king_health_label.text = LocalizationService.translate_key(
-		"phase2.king_health",
-		{"current": ceili(king.health.current_health), "max": ceili(king.health.max_health)}
-	)
-	king_health_bar.value = king.health.get_ratio() * 100.0
-	var living_count := _living_enemy_count()
+	king.set_level_display(LocalizationService.translate_key(
+		"phase6.king_level_short",
+		{"level": king_progression_controller.get_run_level()}
+	))
+	var living_count := _living_enemy_count() + _active_bosses.size()
 	enemy_count_label.text = LocalizationService.translate_key(
 		"phase2.enemy_count",
 		{"count": living_count, "target": enemy_spawn_director.get_target_population(elapsed_time)}
@@ -550,19 +647,6 @@ func _refresh_live_text() -> void:
 	run_gold_label.text = LocalizationService.translate_key(
 		"phase2.run_gold",
 		{"amount": RewardGrantService.get_run_gold()}
-	)
-	level_xp_label.text = LocalizationService.translate_key(
-		"phase5.level_xp",
-		{
-			"level": king_progression_controller.get_run_level(),
-			"xp": king_progression_controller.get_run_xp(),
-			"required": king_progression_controller.get_xp_required(),
-		}
-	)
-	xp_bar.value = (
-		float(king_progression_controller.get_run_xp())
-		/ float(maxi(king_progression_controller.get_xp_required(), 1))
-		* 100.0
 	)
 	if army_controller.unlimited_summons:
 		army_capacity_label.text = LocalizationService.translate_key(
@@ -637,31 +721,67 @@ func _refresh_live_text() -> void:
 
 func _on_enemy_defeated(enemy: GoblinController, _context: Dictionary) -> void:
 	var defeated_position := enemy.global_position
-	_training_enemies.erase(enemy.instance_id)
+	var defeated_boss := enemy as BossController
+	if defeated_boss != null:
+		_active_bosses.erase(enemy.instance_id)
+		boss_director.mark_defeated(defeated_boss.boss_id, enemy.instance_id, _get_elapsed_time())
+	else:
+		_training_enemies.erase(enemy.instance_id)
 	var pickup_id := "run_gold_%08d" % _next_pickup_serial
 	_next_pickup_serial += 1
-	var enemy_config: Dictionary = _enemy_configs.get(str(enemy.enemy_id), {})
-	var reward_data: Dictionary = enemy_config.get("rewards", {})
+	var reward_data: Dictionary = defeated_boss.reward_data if defeated_boss != null else _enemy_configs.get(str(enemy.enemy_id), {}).get("rewards", {})
 	RewardGrantService.grant_run_xp(
 		maxi(int(reward_data.get("run_xp", 1)), 1),
-		{"source_kind": "enemy", "source_id": str(enemy.enemy_id), "instance_id": enemy.instance_id}
+		{"source_kind": "boss" if defeated_boss != null else "enemy", "source_id": str(enemy.enemy_id), "instance_id": enemy.instance_id}
 	)
 	_create_gold_pickup(pickup_id, defeated_position, maxi(int(reward_data.get("run_gold", 1)), 1))
-	var healing_drop := combat_drop_director.roll_healing_pickup(reward_data)
-	if not healing_drop.is_empty():
-		_create_healing_pickup(
-			str(healing_drop.get("pickup_id", "")),
-			defeated_position + Vector2(42.0, 0.0),
-			float(healing_drop.get("max_health_fraction", 0.14))
-		)
-	enemy_spawn_director.schedule_replacement()
+	if defeated_boss == null:
+		var healing_drop := combat_drop_director.roll_healing_pickup(reward_data)
+		if not healing_drop.is_empty():
+			_create_healing_pickup(
+				str(healing_drop.get("pickup_id", "")),
+				defeated_position + Vector2(42.0, 0.0),
+				float(healing_drop.get("max_health_fraction", 0.14))
+			)
+		enemy_spawn_director.schedule_replacement()
+	else:
+		_create_healing_pickup("boss_heal_%08d" % _next_pickup_serial, defeated_position + Vector2(54.0, 0.0), 0.3)
+		_next_pickup_serial += 1
 	get_tree().create_timer(DEFEATED_ENEMY_CLEANUP_SEC).timeout.connect(enemy.queue_free)
 	_store_combat_state()
 	_refresh_live_text()
 
 
-func _on_spawn_requested(instance_key: String, enemy_id: StringName, world_position: Vector2) -> void:
-	_create_goblin(instance_key, enemy_id, world_position, -1.0)
+func _on_spawn_requested(request: Dictionary) -> void:
+	_create_goblin(
+		str(request.get("instance_id", "")),
+		StringName(str(request.get("enemy_id", "goblin"))),
+		request.get("position", king.global_position + Vector2(600.0, 0.0)),
+		-1.0,
+		false,
+		request.get("runtime_modifiers", {})
+	)
+	_store_combat_state()
+	_refresh_live_text()
+
+
+func _on_boss_spawn_requested(request: Dictionary) -> void:
+	_create_boss(request)
+	_store_combat_state()
+	_refresh_live_text()
+
+
+func _on_boss_add_requested(request: Dictionary) -> void:
+	var instance_key := "boss_add_%08d" % _next_boss_add_serial
+	_next_boss_add_serial += 1
+	_create_goblin(
+		instance_key,
+		StringName(str(request.get("enemy_id", "goblin"))),
+		request.get("position", king.global_position + Vector2(520.0, 0.0)),
+		-1.0,
+		true,
+		request.get("runtime_modifiers", {})
+	)
 	_store_combat_state()
 	_refresh_live_text()
 
@@ -760,9 +880,6 @@ func _refresh_level_up_choices() -> void:
 			"phase5.skill_card",
 			{
 				"name": LocalizationService.translate_key(str(choice.get("name_key", ""))),
-				"description": LocalizationService.translate_key(str(choice.get("description_key", ""))),
-				"level": int(choice.get("current_level", 0)) + 1,
-				"max": int(choice.get("max_level", 1)),
 			}
 		)
 
@@ -779,6 +896,10 @@ func _on_king_defeated(_context: Dictionary) -> void:
 		var enemy := enemy_value as GoblinController
 		if is_instance_valid(enemy):
 			enemy.set_target(king)
+	for boss_value in _active_bosses.values():
+		var boss := boss_value as BossController
+		if is_instance_valid(boss):
+			boss.set_target(king)
 	death_overlay.visible = true
 	_store_combat_state()
 	_refresh_live_text()
@@ -795,6 +916,10 @@ func _on_target_changed(_target: GoblinController) -> void:
 func _on_locale_changed(_locale: String) -> void:
 	_refresh_static_text()
 	_refresh_live_text()
+	for boss_value in _active_bosses.values():
+		var boss := boss_value as BossController
+		if is_instance_valid(boss):
+			boss.refresh_display_name(LocalizationService.translate_key(boss.name_key))
 	if level_up_overlay.visible:
 		_refresh_level_up_choices()
 

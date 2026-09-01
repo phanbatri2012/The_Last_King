@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://scenes/gameplay/movement_arena.gd" id="1_arena"]
 [ext_resource type="Script" path="res://scripts/gameplay/movement_arena_backdrop.gd" id="2_backdrop"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/combat/ally_projectile_pool.gd" id="9_ally_projectiles"]
 [ext_resource type="Script" path="res://scripts/progression/king_progression_controller.gd" id="10_progression"]
 [ext_resource type="Script" path="res://scripts/progression/king_skill_runtime.gd" id="11_skill_runtime"]
+[ext_resource type="Script" path="res://scripts/battle/boss_director.gd" id="12_boss_director"]
 
 [sub_resource type="StyleBoxFlat" id="StyleHudPanel"]
 bg_color = Color(0.025, 0.034, 0.045, 0.92)
@@ -162,6 +163,10 @@ script = ExtResource("2_backdrop")
 unique_name_in_owner = true
 script = ExtResource("5_spawn")
 
+[node name="BossDirector" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("12_boss_director")
+
 [node name="CombatDropDirector" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("7_drop")
@@ -265,38 +270,6 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.57, 0.63, 0.69, 1)
 text = "phase1.session_time"
 horizontal_alignment = 2
-
-[node name="LevelXpLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.83, 0.67, 1, 1)
-text = "phase5.level_xp"
-horizontal_alignment = 2
-
-[node name="XpBar" type="ProgressBar" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(280, 9)
-layout_mode = 2
-theme_override_styles/background = SubResource("StyleHealthBackground")
-theme_override_styles/fill = SubResource("StyleXpFill")
-value = 0.0
-show_percentage = false
-
-[node name="KingHealthLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.84, 0.9, 0.82, 1)
-text = "phase2.king_health"
-horizontal_alignment = 2
-
-[node name="KingHealthBar" type="ProgressBar" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(280, 12)
-layout_mode = 2
-theme_override_styles/background = SubResource("StyleHealthBackground")
-theme_override_styles/fill = SubResource("StyleHealthFill")
-value = 100.0
-show_percentage = false
 
 [node name="EnemyCountLabel" type="Label" parent="HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry"]
 unique_name_in_owner = true
@@ -597,7 +570,7 @@ alignment = 1
 
 [node name="SkillCard1" type="Button" parent="HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(315, 220)
+custom_minimum_size = Vector2(315, 120)
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
 theme_override_styles/normal = SubResource("StyleSkillCard")
@@ -606,7 +579,7 @@ autowrap_mode = 2
 
 [node name="SkillCard2" type="Button" parent="HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(315, 220)
+custom_minimum_size = Vector2(315, 120)
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
 theme_override_styles/normal = SubResource("StyleSkillCard")
@@ -615,7 +588,7 @@ autowrap_mode = 2
 
 [node name="SkillCard3" type="Button" parent="HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(315, 220)
+custom_minimum_size = Vector2(315, 120)
 layout_mode = 2
 theme_override_font_sizes/font_size = 17
 theme_override_styles/normal = SubResource("StyleSkillCard")

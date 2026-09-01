@@ -9,19 +9,21 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	print("[TEST] The Last King Phase 5 royal progression")
+	print("[TEST] The Last King Phase 6 Goblin threat and Boss progression")
 	_test_project_configuration()
 	_test_scenes_load()
 	_test_faction_roster()
 	_test_weapon_archetypes()
 	_test_king_catalog()
 	_test_enemy_catalog()
+	_test_goblin_threat_progression()
 	_test_unit_catalog()
 	_test_king_skill_catalog()
 	_test_localization_catalogs()
 	_test_platform_adapter()
 	_test_battle_session_serialization()
 	_test_enemy_spawn_director_state()
+	_test_boss_director_state()
 	_test_combat_drop_director()
 	_test_formation_slots()
 	_test_reward_grants()
@@ -36,6 +38,7 @@ func _run() -> void:
 	await _test_king_piercing_attacks()
 	await _test_goblin_attack_combat()
 	await _test_goblin_ranged_magic_combat()
+	await _test_boss_signature_combat()
 	await _test_spearman_combat()
 	await _test_ally_ranged_combat()
 	await _test_army_summoning_and_restore()
@@ -61,7 +64,7 @@ func _run() -> void:
 
 func _test_project_configuration() -> void:
 	_expect(ProjectSettings.get_setting("application/config/name") == "The Last King", "Project name is canonical.")
-	_expect(ProjectSettings.get_setting("application/config/version") == "0.5.0", "Game version is independent and explicit.")
+	_expect(ProjectSettings.get_setting("application/config/version") == "0.6.0", "Game version is independent and explicit.")
 	var project_file := _read_text("res://project.godot")
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
@@ -89,6 +92,7 @@ func _test_scenes_load() -> void:
 	var main_menu := load("res://scenes/menus/main_menu.tscn")
 	var king := load("res://scenes/gameplay/king.tscn")
 	var goblin := load("res://scenes/gameplay/goblin.tscn")
+	var boss := load("res://scenes/gameplay/boss.tscn")
 	var summoned_unit := load("res://scenes/gameplay/summoned_unit.tscn")
 	var run_gold_pickup := load("res://scenes/gameplay/run_gold_pickup.tscn")
 	var healing_orb_pickup := load("res://scenes/gameplay/healing_orb_pickup.tscn")
@@ -99,6 +103,7 @@ func _test_scenes_load() -> void:
 	_expect(main_menu is PackedScene, "Main menu scene loads.")
 	_expect(king is PackedScene, "King scene loads.")
 	_expect(goblin is PackedScene, "Goblin scene loads.")
+	_expect(boss is PackedScene, "Data-driven Boss scene loads.")
 	_expect(summoned_unit is PackedScene, "Summoned unit scene loads.")
 	_expect(run_gold_pickup is PackedScene, "Run Gold pickup scene loads.")
 	_expect(healing_orb_pickup is PackedScene, "Healing Orb pickup scene loads.")
@@ -238,10 +243,10 @@ func _test_enemy_catalog() -> void:
 	var catalog := _load_json("res://data/enemies/enemies.json")
 	var english := _load_json("res://localization/en-US/common.json")
 	var vietnamese := _load_json("res://localization/vi-VN/common.json")
-	_expect(int(catalog.get("schema_version", 0)) == 2, "Enemy catalog schema is versioned for multi-archetype combat.")
-	_expect(str(catalog.get("content_version", "")).begins_with("phase5"), "Enemy catalog identifies Phase 5 survival content.")
+	_expect(int(catalog.get("schema_version", 0)) == 3, "Enemy catalog schema is versioned for threat progression.")
+	_expect(str(catalog.get("content_version", "")).begins_with("phase6"), "Enemy catalog identifies Phase 6 threat content.")
 	var enemies: Array = catalog.get("enemies", [])
-	_expect(enemies.size() >= 4, "At least four Goblin combat archetypes are available.")
+	_expect(enemies.size() >= 14, "The Goblin army exposes all progression archetypes while retaining existing variants.")
 	var seen_ids: Dictionary = {}
 	var seen_roles: Dictionary = {}
 	var seen_aggro_ranges: Dictionary = {}
@@ -260,6 +265,7 @@ func _test_enemy_catalog() -> void:
 		var attack: Dictionary = enemy.get("attack", {})
 		var spawn: Dictionary = enemy.get("spawn", {})
 		var rewards: Dictionary = enemy.get("rewards", {})
+		var ability: Dictionary = enemy.get("ability", {})
 		_expect(not enemy_id.is_empty() and not seen_ids.has(enemy_id), "Enemy ID is stable and unique: %s" % enemy_id)
 		_expect(not combat_role.is_empty(), "Goblin has a data-driven combat role: %s" % enemy_id)
 		_expect(english.has(str(enemy.get("name_key", ""))), "Enemy name is localized in English: %s" % enemy_id)
@@ -276,6 +282,10 @@ func _test_enemy_catalog() -> void:
 		_expect(attack_style in ["melee", "ranged"], "Enemy attack style is supported: %s" % enemy_id)
 		_expect(damage_type in ["physical", "magic"], "Enemy damage type is supported: %s" % enemy_id)
 		_expect(float(spawn.get("weight", 0.0)) > 0.0, "Enemy has a positive seeded spawn weight: %s" % enemy_id)
+		_expect(int(spawn.get("cost", 0)) > 0, "Enemy has a positive Threat Director spawn cost: %s" % enemy_id)
+		_expect(float(spawn.get("unlock_minute", -1.0)) >= 0.0, "Enemy has a non-negative unlock minute: %s" % enemy_id)
+		_expect(spawn.get("tags", null) is Array, "Enemy exposes threat-selection tags: %s" % enemy_id)
+		_expect(not str(ability.get("kind", "")).is_empty(), "Enemy exposes a data-driven ability classification: %s" % enemy_id)
 		_expect(int(rewards.get("run_gold", 0)) > 0, "Enemy grants a positive run Gold reward: %s" % enemy_id)
 		_expect(int(rewards.get("run_xp", 0)) > 0, "Enemy grants positive King XP: %s" % enemy_id)
 		var healing_orb: Dictionary = rewards.get("healing_orb", {})
@@ -293,12 +303,52 @@ func _test_enemy_catalog() -> void:
 		seen_attack_styles[attack_style] = true
 		seen_damage_types[damage_type] = true
 	_expect(seen_ids.has("goblin"), "The original Goblin stable ID is retained.")
-	for expected_id in ["goblin_brute", "goblin_archer", "goblin_hexer"]:
+	for expected_id in ["goblin_runner", "goblin_shield", "goblin_brute", "goblin_archer", "goblin_bomber", "goblin_shaman", "goblin_berserker", "goblin_champion", "goblin_hexer", "goblin_wolf_rider", "goblin_warlock", "goblin_royal_guard", "goblin_demonized"]:
 		_expect(seen_ids.has(expected_id), "Required Goblin archetype exists: %s" % expected_id)
 	_expect(seen_roles.size() >= 4, "Goblin archetypes expose distinct combat roles.")
 	_expect(seen_aggro_ranges.size() >= 4, "Each Goblin archetype has a distinct hatred range.")
 	_expect(seen_attack_styles.has("melee") and seen_attack_styles.has("ranged"), "Goblin roster includes melee and ranged attackers.")
 	_expect(seen_damage_types.has("physical") and seen_damage_types.has("magic"), "Goblin roster includes physical and magic damage.")
+	var doubled_aggro := {"goblin": 1040.0, "goblin_brute": 860.0, "goblin_archer": 1560.0, "goblin_hexer": 1360.0}
+	for enemy_value in enemies:
+		if enemy_value is Dictionary and doubled_aggro.has(str(enemy_value.get("id", ""))):
+			_expect(is_equal_approx(float(enemy_value.get("movement", {}).get("aggro_range", 0.0)), float(doubled_aggro[str(enemy_value.get("id", ""))])), "Existing Goblin hatred range is doubled: %s" % enemy_value.get("id", ""))
+
+
+func _test_goblin_threat_progression() -> void:
+	var config := _load_json("res://data/enemies/goblin_threat_progression.json")
+	var english := _load_json("res://localization/en-US/common.json")
+	var vietnamese := _load_json("res://localization/vi-VN/common.json")
+	_expect(str(config.get("content_version", "")).begins_with("phase6"), "Goblin threat progression has an independent Phase 6 content version.")
+	var phases: Array = config.get("phases", [])
+	var bosses: Array = config.get("bosses", [])
+	_expect(phases.size() == 11, "Threat Director contains the complete Story and Endless phase ladder.")
+	_expect(bosses.size() == 12, "Boss ladder contains twelve data-driven bosses.")
+	var signatures: Dictionary = {}
+	var previous_hp_multiplier := 0.0
+	var previous_damage_multiplier := 0.0
+	for tier_index in bosses.size():
+		var boss: Dictionary = bosses[tier_index]
+		var signature_id := str(boss.get("signature_skill_id", ""))
+		_expect(int(boss.get("tier", 0)) == tier_index + 1, "Boss tiers are sequential: %s" % boss.get("id", ""))
+		_expect(not signatures.has(signature_id), "Every boss owns one unique signature skill: %s" % signature_id)
+		_expect(float(boss.get("hp_multiplier", 0.0)) > previous_hp_multiplier, "Boss HP power increases by tier: %s" % boss.get("id", ""))
+		_expect(float(boss.get("damage_multiplier", 0.0)) > previous_damage_multiplier, "Boss damage power increases by tier: %s" % boss.get("id", ""))
+		_expect(english.has(str(boss.get("name_key", ""))) and vietnamese.has(str(boss.get("name_key", ""))), "Boss name is localized in English and Vietnamese: %s" % boss.get("id", ""))
+		var signature: Dictionary = boss.get("signature", {})
+		_expect(float(signature.get("telegraph_duration", 0.0)) >= 0.9, "Boss signature has a readable telegraph: %s" % boss.get("id", ""))
+		_expect(signature.get("effect_parameters", null) is Dictionary and signature.get("enhanced_parameters", null) is Dictionary, "Boss signature has base and enhanced parameters: %s" % boss.get("id", ""))
+		signatures[signature_id] = true
+		previous_hp_multiplier = float(boss.get("hp_multiplier", 0.0))
+		previous_damage_multiplier = float(boss.get("damage_multiplier", 0.0))
+	_expect(is_equal_approx(float(bosses[3].get("appearance_time", 0.0)), 360.0), "Goblin King is the Story climax at minute six.")
+	_expect(is_equal_approx(float(bosses[11].get("appearance_time", 0.0)), 1800.0), "Goblin God-King closes the fixed ladder at minute thirty.")
+	var scaling: Dictionary = config.get("scaling", {})
+	var minute := 6.0
+	var hp_at_six := 1.0 + float(scaling.get("hp_linear", 0.0)) * minute + float(scaling.get("hp_quadratic", 0.0)) * minute * minute
+	var damage_at_six := 1.0 + float(scaling.get("damage_linear", 0.0)) * minute + float(scaling.get("damage_quadratic", 0.0)) * minute * minute
+	_expect(is_equal_approx(hp_at_six, 2.488), "Minute-six Goblin HP follows the quadratic design formula.")
+	_expect(is_equal_approx(damage_at_six, 1.924), "Minute-six Goblin damage follows the quadratic design formula.")
 
 
 func _test_unit_catalog() -> void:
@@ -394,6 +444,7 @@ func _test_king_skill_catalog() -> void:
 		_expect(skill.get("levels", []) is Array and skill.get("levels", []).size() == 3, "King skill has three upgrade ranks: %s" % skill_id)
 		effect_types[str(skill.get("effect_type", ""))] = true
 	_expect(effect_types.has("piercing_wave") and effect_types.has("dragon_aura"), "King roster includes piercing and area active skills.")
+	_expect(_read_text("res://scripts/progression/king_skill_runtime.gd").contains("_draw_upgrade_effect"), "Every King skill selection routes through a distinct upgrade-effect renderer.")
 	var content_database := root.get_node("ContentDatabase")
 	_expect(content_database.get_king_skill_ids().size() == skills.size(), "Content database indexes every King skill.")
 
@@ -405,6 +456,7 @@ func _test_localization_catalogs() -> void:
 	_expect(not vietnamese.is_empty(), "Vietnamese catalog loads.")
 	for key in english.keys():
 		_expect(vietnamese.has(key), "Vietnamese catalog contains key: %s" % key)
+	_expect(english.get("phase5.skill_card") == "{name}" and vietnamese.get("phase5.skill_card") == "{name}", "Level-up cards hide upgraded-skill descriptions and rank details.")
 
 
 func _test_platform_adapter() -> void:
@@ -455,22 +507,59 @@ func _test_battle_session_serialization() -> void:
 func _test_enemy_spawn_director_state() -> void:
 	var target := Node2D.new()
 	var director := EnemySpawnDirector.new()
-	director.set_spawn_roster([
-		{"enemy_id": "goblin", "weight": 3.0},
-		{"enemy_id": "goblin_hexer", "weight": 1.0},
-	])
+	var enemy_catalog := _load_json("res://data/enemies/enemies.json")
+	var threat_config := _load_json("res://data/enemies/goblin_threat_progression.json")
+	var roster: Array[Dictionary] = []
+	for enemy_value in enemy_catalog.get("enemies", []):
+		if enemy_value is Dictionary:
+			var spawn: Dictionary = enemy_value.get("spawn", {})
+			roster.append({"enemy_id": enemy_value.get("id", ""), "weight": spawn.get("weight", 1.0), "cost": spawn.get("cost", 1), "unlock_minute": spawn.get("unlock_minute", 0.0), "tags": spawn.get("tags", [])})
+	director.set_spawn_roster(roster)
+	director.set_threat_config(threat_config, "web", &"normal")
 	director.configure(12345, target)
-	director.ensure_population(3)
-	_expect(director.get_pending_count() == 11, "Spawn director schedules enough Goblins to restore the denser bounded population.")
-	_expect(director.get_target_population(0.0) == 14, "Endless encounter starts with fourteen active Goblins.")
-	_expect(director.get_target_population(35.0) == 15, "Active Goblin density grows gradually over survival time.")
-	_expect(director.get_target_population(99999.0) == 24, "Simultaneous Goblins remain capped for Web and mobile performance.")
+	director.ensure_population(0, 0.0, true)
+	_expect(director.get_pending_count() == 8, "Threat budget schedules the readable eight-Goblin opening pressure.")
+	_expect(director.get_target_population(0.0) == 8, "Threat progression starts at eight active Goblins.")
+	_expect(director.get_target_population(60.0) == 15, "Minute one unlocks the fifteen-Goblin Phase 1 target.")
+	_expect(director.get_target_population(120.0) == 25, "Minute two unlocks the Shield and Archer phase target.")
+	_expect(director.get_target_population(99999.0) == 220, "Web threat population respects its documented hard cap.")
+	_expect(director.get_spawn_budget(360.0) == 47, "Minute-six spawn budget follows the documented quadratic budget formula.")
+	_expect(director.get_soft_cap() == 180 and director.get_hard_cap() == 220, "Web Threat Director uses the documented soft/hard caps.")
 	var snapshot := director.get_runtime_snapshot()
 	_expect(int(snapshot.get("next_spawn_serial", 0)) == 1, "Spawn director snapshots its next stable instance serial.")
-	_expect(snapshot.get("pending_spawn_delays", []) is Array, "Spawn director snapshots pending replacements.")
+	_expect(snapshot.get("pending_spawns", []) is Array, "Spawn director snapshots pending budget spawns.")
 	var restored := EnemySpawnDirector.new()
+	restored.set_spawn_roster(roster)
+	restored.set_threat_config(threat_config, "web", &"normal")
 	restored.configure(99999, target, snapshot)
-	_expect(restored.get_pending_count() == 11, "Spawn director restores pending replacements for Continue.")
+	_expect(restored.get_pending_count() == 8, "Spawn director restores pending budget spawns for Continue.")
+	director.free()
+	restored.free()
+	target.free()
+
+
+func _test_boss_director_state() -> void:
+	var target := Node2D.new()
+	var director := BossDirector.new()
+	var threat_config := _load_json("res://data/enemies/goblin_threat_progression.json")
+	var requests: Array[Dictionary] = []
+	director.boss_spawn_requested.connect(func(request: Dictionary) -> void: requests.append(request))
+	director.configure(4242, threat_config, target, &"normal")
+	_expect(is_equal_approx(director.get_next_boss_time(), 90.0), "Boss Director schedules Goblin Brute at 1:30.")
+	_expect(is_equal_approx(director.get_pressure_multiplier(82.0, false), 0.65), "Threat pressure falls during the twelve-second Boss warning window.")
+	director.update(89.9, false)
+	_expect(requests.is_empty(), "Boss Director does not spawn before the configured appearance time.")
+	director.update(90.0, false)
+	_expect(requests.size() == 1 and requests[0].get("boss_id") == "boss_goblin_brute", "Boss Director spawns the first scheduled boss deterministically.")
+	var first_instance := str(requests[0].get("instance_id", ""))
+	director.mark_defeated(&"boss_goblin_brute", first_instance, 100.0)
+	_expect(is_equal_approx(director.get_pressure_multiplier(101.0, false), 0.6), "Boss death creates a short pressure-relief window.")
+	director.update(180.0, false)
+	_expect(requests.size() == 2 and requests[1].get("boss_id") == "boss_bomber_chief", "Boss Director advances to Bomber Chief at minute three.")
+	var snapshot := director.get_runtime_snapshot()
+	var restored := BossDirector.new()
+	restored.configure(9999, threat_config, target, &"normal", snapshot)
+	_expect(restored.get_active_boss_id() == &"boss_bomber_chief", "Boss Director restores the active Boss identity for Continue.")
 	director.free()
 	restored.free()
 	target.free()
@@ -580,8 +669,8 @@ func _test_movement_arena_layout() -> void:
 		_expect(joystick_control.offset_top < joystick_control.offset_bottom, "Joystick control has positive height.")
 	var back_button := arena.get_node("HudLayer/Hud/TopMargin/TopPanel/TopRow/BackButton") as Button
 	_expect(back_button != null and back_button.custom_minimum_size.y >= 48.0, "Back button meets the touch target baseline.")
-	var health_bar := arena.get_node("HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry/KingHealthBar") as ProgressBar
-	_expect(health_bar != null, "Combat HUD contains the King health bar.")
+	var health_bar := arena.get_node_or_null("HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry/KingHealthBar") as ProgressBar
+	_expect(health_bar == null, "Screen HUD no longer duplicates the King health bar.")
 	_expect(
 		not KingPlaceholderVisual.HEALTH_BAR_FILL_COLOR.is_equal_approx(GoblinPlaceholderVisual.HEALTH_BAR_FILL_COLOR),
 		"King overhead health uses a distinct color from enemy health."
@@ -592,8 +681,10 @@ func _test_movement_arena_layout() -> void:
 	if run_gold_label != null:
 		_expect(run_gold_label.get_theme_color("font_color").r > 0.9, "Run Gold counter uses a bright Gold color.")
 	var spawn_director := arena.get_node("EnemySpawnDirector") as EnemySpawnDirector
-	_expect(spawn_director != null and spawn_director.base_population == 14, "Combat arena starts with fourteen Goblins.")
-	_expect(spawn_director != null and spawn_director.maximum_population == 24, "Combat arena caps simultaneous Goblins at twenty-four.")
+	_expect(spawn_director != null and spawn_director.base_population == 8, "Combat arena starts with the readable eight-Goblin threat target.")
+	_expect(spawn_director != null and spawn_director.maximum_population == 220, "Combat arena exposes the Web soft cap from the progression design.")
+	var boss_director := arena.get_node("BossDirector") as BossDirector
+	_expect(boss_director != null, "Combat arena owns an ordinary Boss Director node.")
 	var army_controller := arena.get_node("ArmyController") as ArmyController
 	_expect(army_controller != null, "Combat arena owns an ordinary ArmyController node.")
 	var projectile_pool := arena.get_node("EnemyProjectilePool") as EnemyProjectilePool
@@ -612,8 +703,10 @@ func _test_movement_arena_layout() -> void:
 	_expect(army_capacity_label != null, "Combat HUD displays the unlimited living army count.")
 	var upgrade_grid := arena.get_node("HudLayer/Hud/SummonMargin/SummonPanel/SummonContent/UpgradeGrid") as GridContainer
 	_expect(upgrade_grid != null and upgrade_grid.columns == 2, "Combat HUD reserves data-driven unit upgrade controls.")
-	var xp_bar := arena.get_node("HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry/XpBar") as ProgressBar
-	_expect(xp_bar != null, "Combat HUD displays King level and XP progress.")
+	var xp_bar := arena.get_node_or_null("HudLayer/Hud/TopMargin/TopPanel/TopRow/Telemetry/XpBar") as ProgressBar
+	_expect(xp_bar == null, "Screen HUD no longer duplicates King level/XP details.")
+	var first_skill_card := arena.get_node("HudLayer/LevelUpOverlay/Center/Panel/Content/SkillCards/SkillCard1") as Button
+	_expect(first_skill_card != null and first_skill_card.custom_minimum_size.y <= 140.0, "Level-up cards are compact after removing upgraded-skill details.")
 	var level_overlay := arena.get_node("HudLayer/LevelUpOverlay") as Control
 	_expect(level_overlay != null and level_overlay.process_mode == Node.PROCESS_MODE_ALWAYS, "Level-up choices remain interactive while battle simulation is paused.")
 	_expect(
@@ -864,7 +957,7 @@ func _test_auto_attack_combat() -> void:
 	_expect(king.weapon_archetype_id == &"sword", "Trần Hưng Đạo equips the configured sword archetype.")
 	_expect(king.auto_attack.attack_style == "melee", "Sword configures the King for melee attacks.")
 	var rapid_attack: Dictionary = king_data.get("attack", {}).duplicate(true)
-	rapid_attack["damage"] = 35.0
+	rapid_attack["damage"] = 4.0
 	rapid_attack["cooldown"] = 0.02
 	king.auto_attack.configure(rapid_attack)
 	goblin.configure(enemy_data, "integration_goblin")
@@ -894,7 +987,7 @@ func _test_auto_attack_combat() -> void:
 			ranged_data["weapon_archetype"] = archetype_value.duplicate(true)
 			break
 	var ranged_attack: Dictionary = ranged_data.get("attack", {}).duplicate(true)
-	ranged_attack["damage"] = 34.0
+	ranged_attack["damage"] = 4.0
 	ranged_attack["range"] = 640.0
 	ranged_data["attack"] = ranged_attack
 	ranged_king.configure(ranged_data)
@@ -1021,7 +1114,7 @@ func _test_goblin_attack_combat() -> void:
 	var king := packed_king.instantiate() as KingController
 	var goblin := packed_goblin.instantiate() as GoblinController
 	king.global_position = Vector2.ZERO
-	goblin.global_position = Vector2(600.0, 0.0)
+	goblin.global_position = Vector2(1200.0, 0.0)
 	root.add_child(king)
 	root.add_child(goblin)
 	await process_frame
@@ -1158,6 +1251,58 @@ func _test_goblin_ranged_magic_combat() -> void:
 	king.queue_free()
 	hexer.queue_free()
 	projectile_pool.queue_free()
+	await process_frame
+
+
+func _test_boss_signature_combat() -> void:
+	var packed_king := load("res://scenes/gameplay/king.tscn") as PackedScene
+	var packed_boss := load("res://scenes/gameplay/boss.tscn") as PackedScene
+	if packed_king == null or packed_boss == null:
+		_expect(false, "Boss signature combat fixtures load.")
+		return
+	var king := packed_king.instantiate() as KingController
+	var boss := packed_boss.instantiate() as BossController
+	king.global_position = Vector2(100.0, 0.0)
+	boss.global_position = Vector2.ZERO
+	root.add_child(king)
+	root.add_child(boss)
+	await process_frame
+	king.follow_camera.enabled = false
+	king.set_keyboard_enabled(false)
+	king.set_movement_enabled(false)
+	king.auto_attack.set_combat_enabled(false)
+	var content_database := root.get_node("ContentDatabase")
+	var king_data: Dictionary = content_database.get_king(&"tran_hung_dao")
+	var enemy_data: Dictionary = content_database.get_enemy(&"goblin_brute")
+	var threat_config: Dictionary = content_database.get_goblin_threat_progression()
+	var bosses: Array = threat_config.get("bosses", [])
+	if enemy_data.is_empty() or bosses.is_empty():
+		_expect(false, "Boss signature data fixtures are available.")
+		king.queue_free()
+		boss.queue_free()
+		await process_frame
+		return
+	king.configure(king_data)
+	king.set_level_display("Lv.7")
+	_expect(str(king.visual.get("_level_text")) == "Lv.7", "King visual stores the localized overhead level text.")
+	boss.configure_boss(bosses[0], enemy_data, "boss_test_0001", "Goblin Brute", {"hp_multiplier": 1.0, "damage_multiplier": 1.0, "cooldown_multiplier": 1.0, "telegraph_multiplier": 1.0, "enhanced_hp_threshold": 0.5})
+	boss.set_target(king)
+	var starting_health := king.health.current_health
+	boss.call("_begin_signature")
+	for _frame in 45:
+		await physics_frame
+	_expect(boss.get_signature_state() == &"telegraph", "Hammerfall remains in a clearly readable telegraph state before impact.")
+	_expect(is_equal_approx(king.health.current_health, starting_health), "Boss telegraph never applies unavoidable early damage.")
+	for _frame in 20:
+		await physics_frame
+	_expect(king.health.current_health < starting_health, "Hammerfall damages a King who remains inside the warned circle.")
+	DamageResolver.apply_damage(boss.health, boss.health.max_health * 0.58, {"source_kind": "king", "source_team": "player", "damage_type": "physical"}, boss.defense)
+	boss.call("_begin_signature")
+	_expect(boss.is_signature_enhanced(), "The same Boss signature switches to enhanced parameters below fifty percent HP.")
+	var snapshot := boss.get_combat_snapshot()
+	_expect(snapshot.get("is_boss", false) and snapshot.has("signature_state") and snapshot.has("stagger_value"), "Boss snapshot preserves HP, signature state, and Stagger state for Continue.")
+	king.queue_free()
+	boss.queue_free()
 	await process_frame
 
 
@@ -1450,6 +1595,7 @@ func _test_king_level_and_skills() -> void:
 		var selected_id := StringName(str(choices[0].get("id", "")))
 		_expect(progression.select_skill(selected_id), "Choosing a level-up card applies that King skill.")
 		_expect(skill_runtime.get_skill_level(selected_id) == 1, "Selected King skill advances to rank one.")
+		_expect(float(skill_runtime.get("_upgrade_pulse")) > 0.0 and not str(skill_runtime.get("_upgrade_effect_type")).is_empty(), "Selecting any King skill starts a clear type-specific visual effect.")
 		_expect(int(game_session_service.get_skill_state().get(str(selected_id), 0)) == 1, "Continue state stores the selected King skill rank.")
 	_expect(not game_session_service.pause_manager.is_paused() and not paused, "Selecting a skill resumes battle simulation.")
 
@@ -1600,8 +1746,8 @@ func _test_endless_respawn_and_gold_pickup() -> void:
 			goblin.set_combat_enabled(false)
 			initial_goblins.append(goblin)
 			initial_archetypes[str(goblin.enemy_id)] = true
-	_expect(initial_goblins.size() == 14, "Endless encounter starts with fourteen simultaneously active Goblins.")
-	_expect(initial_archetypes.size() >= 2, "Seeded endless spawning mixes multiple Goblin archetypes.")
+	_expect(initial_goblins.size() == 8, "Threat progression starts with eight simultaneously active Goblins.")
+	_expect(initial_archetypes.size() == 1 and initial_archetypes.has("goblin"), "Opening phase remains readable by using only Basic Goblins.")
 	if initial_goblins.is_empty():
 		arena.queue_free()
 		await process_frame
@@ -1660,7 +1806,7 @@ func _test_endless_respawn_and_gold_pickup() -> void:
 	for child in arena.get_children():
 		if child is GoblinController and child.is_combat_alive():
 			living_goblins += 1
-	_expect(living_goblins == 14, "A replacement Goblin restores the denser bounded endless encounter population.")
+	_expect(living_goblins == 8, "A replacement Goblin restores the opening Threat Director population.")
 	arena.queue_free()
 	await process_frame
 	game_session_service.end_session({"reason": "test_complete"})

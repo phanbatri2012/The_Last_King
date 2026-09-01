@@ -3,6 +3,7 @@ extends Node
 const FACTION_ROSTER_PATH := "res://data/factions/faction_roster.json"
 const KING_CATALOG_PATH := "res://data/kings/kings.json"
 const ENEMY_CATALOG_PATH := "res://data/enemies/enemies.json"
+const GOBLIN_THREAT_PATH := "res://data/enemies/goblin_threat_progression.json"
 const WEAPON_ARCHETYPE_PATH := "res://data/combat/weapon_archetypes.json"
 const UNIT_CATALOG_PATH := "res://data/units/units.json"
 const KING_SKILL_CATALOG_PATH := "res://data/skills/king_skills.json"
@@ -14,11 +15,13 @@ var units: Dictionary = {}
 var weapon_archetypes: Dictionary = {}
 var king_skills: Dictionary = {}
 var king_progression: Dictionary = {}
+var goblin_threat_progression: Dictionary = {}
 var content_version := ""
 var enemy_content_version := ""
 var weapon_content_version := ""
 var unit_content_version := ""
 var skill_content_version := ""
+var threat_content_version := ""
 var _initialized := false
 
 
@@ -33,6 +36,7 @@ func initialize() -> bool:
 	weapon_archetypes.clear()
 	king_skills.clear()
 	king_progression.clear()
+	goblin_threat_progression.clear()
 
 	var faction_source := _load_json(FACTION_ROSTER_PATH)
 	if faction_source.is_empty() or not faction_source.get("factions", null) is Array:
@@ -45,6 +49,10 @@ func initialize() -> bool:
 	var enemy_source := _load_json(ENEMY_CATALOG_PATH)
 	if enemy_source.is_empty() or not enemy_source.get("enemies", null) is Array:
 		push_error("Enemy catalog is missing or invalid.")
+		return false
+	var threat_source := _load_json(GOBLIN_THREAT_PATH)
+	if threat_source.is_empty() or not threat_source.get("phases", null) is Array or not threat_source.get("bosses", null) is Array:
+		push_error("Goblin threat progression is missing or invalid.")
 		return false
 	var weapon_source := _load_json(WEAPON_ARCHETYPE_PATH)
 	if weapon_source.is_empty() or not weapon_source.get("archetypes", null) is Array:
@@ -70,6 +78,8 @@ func initialize() -> bool:
 		return false
 	if not _index_enemies(enemy_source["enemies"], id_pattern):
 		return false
+	if not _index_goblin_threat(threat_source, id_pattern):
+		return false
 	if not _index_units(unit_source["units"], id_pattern):
 		return false
 	if not _index_king_skills(skill_source["skills"], skill_source["progression"], id_pattern):
@@ -94,6 +104,10 @@ func initialize() -> bool:
 	skill_content_version = str(skill_source.get("content_version", ""))
 	if skill_content_version.is_empty():
 		push_error("King skill catalog content_version is missing.")
+		return false
+	threat_content_version = str(threat_source.get("content_version", ""))
+	if threat_content_version.is_empty():
+		push_error("Goblin threat progression content_version is missing.")
 		return false
 
 	_initialized = true
@@ -299,11 +313,22 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 		if str(enemy.get("combat_role", "")).is_empty():
 			push_error("Enemy combat role is missing: %s" % enemy_id)
 			return false
-		if str(presentation.get("visual_kind", "")) not in ["raider", "brute", "archer", "hexer"]:
+		if str(presentation.get("visual_kind", "")) not in [
+			"raider", "runner", "shield", "archer", "bomber", "shaman", "brute",
+			"berserker", "champion", "hexer", "wolf_rider", "warlock",
+			"royal_guard", "demonized",
+		]:
 			push_error("Enemy visual kind is invalid: %s" % enemy_id)
 			return false
 		if float(spawn.get("weight", 0.0)) <= 0.0:
 			push_error("Enemy spawn weight must be positive: %s" % enemy_id)
+			return false
+		if int(spawn.get("cost", 0)) <= 0 or float(spawn.get("unlock_minute", -1.0)) < 0.0 or not spawn.get("tags", null) is Array:
+			push_error("Enemy threat spawn data is invalid: %s" % enemy_id)
+			return false
+		var ability: Dictionary = enemy.get("ability", {})
+		if str(ability.get("kind", "")).is_empty():
+			push_error("Enemy ability classification is missing: %s" % enemy_id)
 			return false
 		if int(rewards.get("run_gold", 0)) <= 0:
 			push_error("Enemy run Gold reward must be positive: %s" % enemy_id)
@@ -318,6 +343,103 @@ func _index_enemies(records: Array, id_pattern: RegEx) -> bool:
 			push_error("Enemy healing Orb reward is invalid: %s" % enemy_id)
 			return false
 		enemies[enemy_id] = enemy.duplicate(true)
+	return true
+
+
+func _index_goblin_threat(source: Dictionary, id_pattern: RegEx) -> bool:
+	var budget: Dictionary = source.get("budget", {})
+	var scaling: Dictionary = source.get("scaling", {})
+	var caps: Dictionary = source.get("platform_caps", {})
+	var difficulty: Dictionary = source.get("difficulty", {})
+	var phases_value: Variant = source.get("phases", null)
+	var bosses_value: Variant = source.get("bosses", null)
+	if float(budget.get("interval_seconds", 0.0)) <= 0.0 or float(budget.get("base", 0.0)) <= 0.0:
+		push_error("Goblin threat budget is invalid.")
+		return false
+	for scaling_key in ["hp_linear", "hp_quadratic", "damage_linear", "damage_quadratic", "speed_linear"]:
+		if float(scaling.get(scaling_key, -1.0)) < 0.0:
+			push_error("Goblin scaling value is invalid: %s" % scaling_key)
+			return false
+	if float(scaling.get("speed_cap", 0.0)) < 1.0:
+		push_error("Goblin speed scaling cap is invalid.")
+		return false
+	for platform_id in ["web", "youtube_playables", "android", "ios", "desktop"]:
+		var platform_cap: Dictionary = caps.get(platform_id, {})
+		var soft_cap := int(platform_cap.get("soft", 0))
+		var hard_cap := int(platform_cap.get("hard", 0))
+		if soft_cap <= 0 or hard_cap < soft_cap:
+			push_error("Goblin platform cap is invalid: %s" % platform_id)
+			return false
+	for difficulty_id in ["normal", "hard", "nightmare", "hell"]:
+		var difficulty_data: Dictionary = difficulty.get(difficulty_id, {})
+		for modifier_key in ["enemy_hp", "enemy_damage", "threat_budget", "telegraph_multiplier", "enhanced_hp_threshold"]:
+			if float(difficulty_data.get(modifier_key, 0.0)) <= 0.0:
+				push_error("Goblin difficulty modifier is invalid: %s.%s" % [difficulty_id, modifier_key])
+				return false
+	if not phases_value is Array or phases_value.is_empty():
+		push_error("Goblin threat phases are missing.")
+		return false
+	var last_phase_start := -1.0
+	for phase_value in phases_value:
+		if not phase_value is Dictionary:
+			return false
+		var phase: Dictionary = phase_value
+		var phase_id := str(phase.get("id", ""))
+		var phase_start := float(phase.get("start_time", -1.0))
+		var phase_end := float(phase.get("end_time", -1.0))
+		if id_pattern.search(phase_id) == null or phase_start < last_phase_start or phase_end <= phase_start:
+			push_error("Goblin threat phase is invalid: %s" % phase_id)
+			return false
+		if int(phase.get("target_active_min", 0)) <= 0 or int(phase.get("target_active_max", 0)) < int(phase.get("target_active_min", 0)):
+			push_error("Goblin threat phase population is invalid: %s" % phase_id)
+			return false
+		var allowed_value: Variant = phase.get("allowed_enemy_ids", null)
+		if not allowed_value is Array or allowed_value.is_empty():
+			push_error("Goblin threat phase roster is missing: %s" % phase_id)
+			return false
+		for enemy_id_value in allowed_value:
+			if not enemies.has(str(enemy_id_value)):
+				push_error("Goblin threat phase references an unknown enemy: %s" % enemy_id_value)
+				return false
+		last_phase_start = phase_start
+	if not bosses_value is Array or bosses_value.size() != 12:
+		push_error("Goblin boss ladder must contain exactly twelve bosses.")
+		return false
+	var boss_ids: Dictionary = {}
+	var signature_ids: Dictionary = {}
+	var last_tier := 0
+	var last_appearance := -1.0
+	for boss_value in bosses_value:
+		if not boss_value is Dictionary:
+			return false
+		var boss: Dictionary = boss_value
+		var boss_id := str(boss.get("id", ""))
+		var signature_id := str(boss.get("signature_skill_id", ""))
+		var tier := int(boss.get("tier", 0))
+		var appearance := float(boss.get("appearance_time", -1.0))
+		if id_pattern.search(boss_id) == null or boss_ids.has(boss_id) or id_pattern.search(signature_id) == null or signature_ids.has(signature_id):
+			push_error("Goblin boss or signature ID is invalid/duplicated: %s" % boss_id)
+			return false
+		if tier != last_tier + 1 or appearance <= last_appearance or not enemies.has(str(boss.get("base_enemy_id", ""))):
+			push_error("Goblin boss ladder order is invalid: %s" % boss_id)
+			return false
+		for stat_key in ["base_hp", "base_damage", "hp_multiplier", "damage_multiplier", "stagger_resistance"]:
+			if float(boss.get(stat_key, 0.0)) <= 0.0:
+				push_error("Goblin boss stat is invalid: %s.%s" % [boss_id, stat_key])
+				return false
+		var signature: Dictionary = boss.get("signature", {})
+		for timing_key in ["telegraph_duration", "cooldown", "recovery_duration", "effect_duration"]:
+			if float(signature.get(timing_key, 0.0)) <= 0.0:
+				push_error("Goblin boss signature timing is invalid: %s.%s" % [boss_id, timing_key])
+				return false
+		if not signature.get("effect_parameters", null) is Dictionary or not signature.get("enhanced_parameters", null) is Dictionary:
+			push_error("Goblin boss signature parameters are missing: %s" % boss_id)
+			return false
+		boss_ids[boss_id] = true
+		signature_ids[signature_id] = true
+		last_tier = tier
+		last_appearance = appearance
+	goblin_threat_progression = source.duplicate(true)
 	return true
 
 
@@ -541,6 +663,20 @@ func get_king_skill_ids() -> PackedStringArray:
 
 func get_king_progression_config() -> Dictionary:
 	return king_progression.duplicate(true)
+
+
+func get_goblin_threat_progression() -> Dictionary:
+	return goblin_threat_progression.duplicate(true)
+
+
+func get_goblin_bosses() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var bosses_value: Variant = goblin_threat_progression.get("bosses", [])
+	if bosses_value is Array:
+		for boss_value in bosses_value:
+			if boss_value is Dictionary:
+				result.append(boss_value.duplicate(true))
+	return result
 
 
 func _valid_positive_bounds(bounds: Dictionary) -> bool:

@@ -4,14 +4,14 @@
   "type": "object",
   "required": ["schema_version", "content_version", "enemies"],
   "properties": {
-    "schema_version": {"type": "integer", "minimum": 2},
+    "schema_version": {"type": "integer", "minimum": 3},
     "content_version": {"type": "string", "minLength": 1},
     "enemies": {
       "type": "array",
-      "minItems": 4,
+      "minItems": 12,
       "items": {
         "type": "object",
-        "required": ["id", "name_key", "status", "combat_role", "health", "defense", "movement", "attack", "presentation", "spawn", "rewards"],
+        "required": ["id", "name_key", "status", "combat_role", "health", "defense", "movement", "attack", "presentation", "spawn", "ability", "rewards"],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
           "name_key": {"type": "string", "minLength": 1},
@@ -74,19 +74,31 @@
           },
           "presentation": {
             "type": "object",
-            "required": ["visual_kind", "body_color", "accent_color"],
+            "required": ["visual_kind", "body_color", "accent_color", "scale"],
             "properties": {
-              "visual_kind": {"enum": ["raider", "brute", "archer", "hexer"]},
+              "visual_kind": {"enum": ["raider", "runner", "shield", "archer", "bomber", "shaman", "brute", "berserker", "champion", "hexer", "wolf_rider", "warlock", "royal_guard", "demonized"]},
               "body_color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
-              "accent_color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"}
+              "accent_color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+              "scale": {"type": "number", "minimum": 0.6, "maximum": 2.0}
             },
             "additionalProperties": false
           },
           "spawn": {
             "type": "object",
-            "required": ["weight"],
-            "properties": {"weight": {"type": "number", "exclusiveMinimum": 0}},
+            "required": ["weight", "cost", "unlock_minute", "tags"],
+            "properties": {
+              "weight": {"type": "number", "exclusiveMinimum": 0},
+              "cost": {"type": "integer", "minimum": 1},
+              "unlock_minute": {"type": "number", "minimum": 0},
+              "tags": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+            },
             "additionalProperties": false
+          },
+          "ability": {
+            "type": "object",
+            "required": ["kind"],
+            "properties": {"kind": {"type": "string", "minLength": 1}},
+            "additionalProperties": true
           },
           "rewards": {
             "type": "object",
