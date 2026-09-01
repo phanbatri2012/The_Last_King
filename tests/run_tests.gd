@@ -9,7 +9,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	print("[TEST] The Last King Phase 6 Goblin threat and Boss progression")
+	print("[TEST] The Last King Phase 7 active royal skills")
 	_test_project_configuration()
 	_test_scenes_load()
 	_test_faction_roster()
@@ -45,6 +45,7 @@ func _run() -> void:
 	await _test_dai_viet_roster_summoning()
 	await _test_unlimited_army_upgrade()
 	await _test_king_level_and_skills()
+	await _test_active_king_skills()
 	await _test_healing_orb_continue()
 	await _test_endless_respawn_and_gold_pickup()
 	await _test_desktop_menu_exit_runtime()
@@ -64,7 +65,7 @@ func _run() -> void:
 
 func _test_project_configuration() -> void:
 	_expect(ProjectSettings.get_setting("application/config/name") == "The Last King", "Project name is canonical.")
-	_expect(ProjectSettings.get_setting("application/config/version") == "0.6.0", "Game version is independent and explicit.")
+	_expect(ProjectSettings.get_setting("application/config/version") == "0.7.0", "Game version is independent and explicit.")
 	var project_file := _read_text("res://project.godot")
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
@@ -79,13 +80,14 @@ func _test_project_configuration() -> void:
 	for action_name in ["move_left", "move_right", "move_up", "move_down"]:
 		_expect(InputMap.has_action(action_name), "Movement input action exists: %s" % action_name)
 		_expect(not InputMap.action_get_events(action_name).is_empty(), "Movement input action has bindings: %s" % action_name)
-	_expect(InputMap.has_action("summon_spearman"), "Desktop summon input action exists.")
-	_expect(not InputMap.action_get_events("summon_spearman").is_empty(), "Desktop summon action has a keyboard binding.")
 	for hotkey_slot in range(1, 8):
 		var action_name := "summon_unit_%d" % hotkey_slot
 		_expect(InputMap.has_action(action_name), "Roster summon input action exists: %s" % action_name)
 		_expect(not InputMap.action_get_events(action_name).is_empty(), "Roster summon action has a keyboard binding: %s" % action_name)
 	_expect(InputMap.has_action("toggle_unit_upgrades") and not InputMap.action_get_events("toggle_unit_upgrades").is_empty(), "Unit-upgrade overlay has a PC/Web keyboard shortcut.")
+	for skill_slot in range(1, 4):
+		var action_name := "active_skill_%d" % skill_slot
+		_expect(InputMap.has_action(action_name) and not InputMap.action_get_events(action_name).is_empty(), "Active King skill has a PC/Web keyboard shortcut: %s" % action_name)
 
 
 func _test_scenes_load() -> void:
@@ -430,7 +432,7 @@ func _test_king_skill_catalog() -> void:
 	var english := _load_json("res://localization/en-US/common.json")
 	var vietnamese := _load_json("res://localization/vi-VN/common.json")
 	_expect(int(catalog.get("schema_version", 0)) == 1, "King skill catalog is versioned.")
-	_expect(str(catalog.get("content_version", "")).begins_with("phase5"), "King skill catalog identifies Phase 5 content.")
+	_expect(str(catalog.get("content_version", "")).begins_with("phase7"), "King skill catalog identifies Phase 7 content.")
 	var progression: Dictionary = catalog.get("progression", {})
 	_expect(int(progression.get("base_xp_to_level", 0)) >= 60, "King leveling starts with a substantial XP requirement.")
 	_expect(int(progression.get("xp_growth_per_level", 0)) >= 30, "King leveling becomes meaningfully harder at each level.")
@@ -452,6 +454,21 @@ func _test_king_skill_catalog() -> void:
 	_expect(_read_text("res://scripts/progression/king_skill_runtime.gd").contains("_draw_upgrade_effect"), "Every King skill selection routes through a distinct upgrade-effect renderer.")
 	var content_database := root.get_node("ContentDatabase")
 	_expect(content_database.get_king_skill_ids().size() == skills.size(), "Content database indexes every King skill.")
+	var active_system: Dictionary = catalog.get("active_skill_system", {})
+	var active_skills: Array = catalog.get("active_skills", [])
+	var active_loadouts: Array = catalog.get("active_skill_loadouts", [])
+	_expect(float(active_system.get("maximum", 0.0)) == 100.0 and float(active_system.get("starting", -1.0)) >= 0.0, "Phase 7 defines bounded Rage resource data.")
+	_expect(active_skills.size() == 3 and active_loadouts.size() >= 1, "Phase 7 gives each MVP King a three-skill active loadout.")
+	var active_effects: Dictionary = {}
+	for active_skill_value in active_skills:
+		var active_skill: Dictionary = active_skill_value
+		var active_skill_id := str(active_skill.get("id", ""))
+		_expect(english.has(str(active_skill.get("name_key", ""))) and vietnamese.has(str(active_skill.get("name_key", ""))), "Active King skill name is localized: %s" % active_skill_id)
+		_expect(english.has(str(active_skill.get("description_key", ""))) and vietnamese.has(str(active_skill.get("description_key", ""))), "Active King skill description is localized: %s" % active_skill_id)
+		_expect(float(active_skill.get("rage_cost", 0.0)) > 0.0 and float(active_skill.get("cooldown", 0.0)) > 0.0, "Active King skill has a Rage cost and cooldown: %s" % active_skill_id)
+		active_effects[str(active_skill.get("effect_type", ""))] = true
+	_expect(active_effects.has("directional_cone") and active_effects.has("royal_guard") and active_effects.has("piercing_fan"), "Active loadout covers offense, defense, and a piercing ultimate.")
+	_expect(content_database.get_active_skill_loadout(&"tran_hung_dao").size() == 3, "Content database resolves Trần Hưng Đạo's active loadout.")
 
 
 func _test_localization_catalogs() -> void:
@@ -505,7 +522,7 @@ func _test_battle_session_serialization() -> void:
 	var session := BattleSession.new()
 	session.create(&"tran_hung_dao", &"dai_viet", 12345)
 	var snapshot := session.to_dict()
-	_expect(snapshot.get("schema_version") == 2, "Battle session snapshot is versioned.")
+	_expect(snapshot.get("schema_version") == 3, "Battle session snapshot is versioned.")
 	_expect(snapshot.get("king_id") == "tran_hung_dao", "Battle session keeps the King ID.")
 	_expect(snapshot.get("faction_id") == "dai_viet", "Battle session keeps the faction ID.")
 	_expect(snapshot.get("run_gold") == 0, "Battle session uses temporary run_gold.")
@@ -515,7 +532,15 @@ func _test_battle_session_serialization() -> void:
 	_expect(snapshot.get("enemy_wave_state") is Dictionary, "Battle session reserves enemy combat state.")
 	_expect(snapshot.get("army") is Array, "Battle session snapshots summoned allied units.")
 	_expect(snapshot.get("skills") is Dictionary and snapshot.get("upgrades") is Dictionary, "Battle session reserves skill and army-upgrade progression.")
+	_expect(snapshot.get("active_skills") is Dictionary and snapshot.get("run_stats") is Dictionary, "Battle session reserves Phase 7 active-skill and run-summary state.")
 	_expect(snapshot.get("run_level") == 1 and snapshot.get("run_xp") == 0, "Battle session starts King progression at level one.")
+	var phase6_snapshot := snapshot.duplicate(true)
+	phase6_snapshot["schema_version"] = 2
+	phase6_snapshot.erase("active_skills")
+	phase6_snapshot.erase("run_stats")
+	var migrated := BattleSession.migrate_snapshot(phase6_snapshot)
+	_expect(migrated.get("schema_version") == 3 and migrated.get("active_skills") is Dictionary, "BattleSession migrates a Phase 6 snapshot to the Phase 7 active-skill schema.")
+	_expect(migrated.get("run_stats") is Dictionary and int(migrated.get("run_stats", {}).get("enemies_defeated", -1)) == 0, "BattleSession migration initializes deterministic run-summary counters.")
 
 
 func _test_enemy_spawn_director_state() -> void:
@@ -734,6 +759,11 @@ func _test_movement_arena_layout() -> void:
 		and not SummonedUnitPlaceholderVisual.HEALTH_BAR_FILL_COLOR.is_equal_approx(GoblinPlaceholderVisual.HEALTH_BAR_FILL_COLOR),
 		"Summoned units use a health bar color distinct from King and Goblins."
 	)
+	var rage_bar := arena.get_node("HudLayer/Hud/ActiveSkillMargin/ActiveSkillPanel/ActiveSkillContent/RageBar") as ProgressBar
+	_expect(rage_bar != null and rage_bar.max_value == 100.0, "Combat HUD exposes the bounded Rage bar.")
+	for skill_slot in range(1, 4):
+		var active_button := arena.get_node("HudLayer/Hud/ActiveSkillMargin/ActiveSkillPanel/ActiveSkillContent/ActiveSkillButtons/ActiveSkillButton%d" % skill_slot) as Button
+		_expect(active_button != null and active_button.custom_minimum_size.y >= 48.0, "Active skill button meets the touch target baseline: %d" % skill_slot)
 	var death_overlay := arena.get_node("HudLayer/DeathOverlay") as Control
 	_expect(death_overlay != null, "Combat HUD contains the defeat overlay.")
 	var retry_button := arena.get_node("HudLayer/DeathOverlay/Center/Panel/Content/RetryButton") as Button
@@ -1656,6 +1686,98 @@ func _test_king_level_and_skills() -> void:
 	progression.queue_free()
 	skill_runtime.queue_free()
 	projectile_pool.queue_free()
+	king.queue_free()
+	await process_frame
+	game_session_service.end_session({"reason": "test_complete"})
+
+
+func _test_active_king_skills() -> void:
+	var game_session_service := root.get_node("GameSessionService")
+	var content_database := root.get_node("ContentDatabase")
+	game_session_service.start_session(&"tran_hung_dao", &"dai_viet", 24680)
+	var packed_king := load("res://scenes/gameplay/king.tscn") as PackedScene
+	var packed_goblin := load("res://scenes/gameplay/goblin.tscn") as PackedScene
+	if packed_king == null or packed_goblin == null:
+		_expect(false, "Phase 7 active-skill fixtures load.")
+		game_session_service.end_session({"reason": "test_failed"})
+		return
+	var king := packed_king.instantiate() as KingController
+	var front_goblin := packed_goblin.instantiate() as GoblinController
+	var rear_goblin := packed_goblin.instantiate() as GoblinController
+	var volley_goblin := packed_goblin.instantiate() as GoblinController
+	var projectile_pool := AllyProjectilePool.new()
+	var active_controller := KingActiveSkillController.new()
+	king.global_position = Vector2.ZERO
+	front_goblin.global_position = Vector2(170.0, 0.0)
+	rear_goblin.global_position = Vector2(-210.0, 0.0)
+	volley_goblin.global_position = Vector2(430.0, 0.0)
+	root.add_child(projectile_pool)
+	root.add_child(king)
+	root.add_child(front_goblin)
+	root.add_child(rear_goblin)
+	root.add_child(volley_goblin)
+	root.add_child(active_controller)
+	await process_frame
+	king.follow_camera.enabled = false
+	king.set_keyboard_enabled(false)
+	king.set_movement_enabled(false)
+	king.configure(content_database.get_king(&"tran_hung_dao"))
+	king.auto_attack.set_combat_enabled(false)
+	var enemy_config: Dictionary = content_database.get_enemy(&"goblin_brute")
+	front_goblin.configure(enemy_config, "active_front")
+	rear_goblin.configure(enemy_config, "active_rear")
+	volley_goblin.configure(enemy_config, "active_volley")
+	front_goblin.set_combat_enabled(false)
+	rear_goblin.set_combat_enabled(false)
+	volley_goblin.set_combat_enabled(false)
+	active_controller.configure(
+		king,
+		projectile_pool,
+		content_database.get_active_skill_system(),
+		content_database.get_active_skill_loadout(&"tran_hung_dao")
+	)
+	_expect(is_equal_approx(active_controller.get_rage(), 20.0), "A new run starts with the configured amount of Rage.")
+	var front_health := front_goblin.health.current_health
+	var rear_health := rear_goblin.health.current_health
+	var sweep_result := active_controller.try_cast_slot(1)
+	_expect(bool(sweep_result.get("accepted", false)), "Q casts Vạn Kiếp Trảm when Rage and cooldown permit.")
+	_expect(front_goblin.health.current_health < front_health, "Vạn Kiếp Trảm damages every target inside its forward cone.")
+	_expect(is_equal_approx(rear_goblin.health.current_health, rear_health), "Vạn Kiếp Trảm leaves targets behind the King outside its aiming cone.")
+	_expect(not bool(active_controller.try_cast_slot(1).get("accepted", true)), "An active skill cannot be cast again during its independent cooldown.")
+
+	DamageResolver.apply_damage(king.health, 80.0, {"source_kind": "enemy", "target_kind": "king", "damage_type": "physical"}, null)
+	active_controller.set_rage(30.0)
+	var damaged_king_health := king.health.current_health
+	var base_armor := king.defense.armor
+	var guard_result := active_controller.try_cast_slot(2)
+	_expect(bool(guard_result.get("accepted", false)), "E casts Hịch Tướng Sĩ when enough Rage is available.")
+	_expect(king.health.current_health > damaged_king_health, "Hịch Tướng Sĩ immediately restores King health.")
+	_expect(king.defense.armor > base_armor and king.defense.magic_resistance > 6.0, "Hịch Tướng Sĩ temporarily raises both physical and magic defense.")
+
+	active_controller.set_rage(100.0)
+	var volley_health := volley_goblin.health.current_health
+	var volley_result := active_controller.try_cast_slot(3)
+	_expect(bool(volley_result.get("accepted", false)) and int(volley_result.get("affected_targets", 0)) == 9, "R casts nine pooled Bạch Đằng piercing waves.")
+	for _frame in 36:
+		await physics_frame
+	_expect(volley_goblin.health.current_health < volley_health, "Bạch Đằng Phá Trận reaches and damages a distant Goblin line.")
+	var snapshot := active_controller.get_runtime_snapshot()
+	game_session_service.set_active_skill_state(snapshot)
+	_expect(float(game_session_service.get_active_skill_state().get("guard_remaining", 0.0)) > 0.0, "Continue stores the remaining royal guard duration.")
+	_expect(game_session_service.get_active_skill_state().get("cooldowns", {}) is Dictionary, "Continue stores all three active-skill cooldowns.")
+
+	active_controller.set_rage(0.0)
+	DamageResolver.apply_damage(rear_goblin.health, 20.0, {"source_kind": "king", "source_team": "player", "source_node": king, "target_kind": "enemy", "damage_type": "physical"}, rear_goblin.defense)
+	var rage_after_dealing_damage := active_controller.get_rage()
+	_expect(rage_after_dealing_damage > 0.0, "King damage resolved through the shared pipeline generates Rage.")
+	DamageResolver.apply_damage(king.health, 12.0, {"source_kind": "enemy", "target_kind": "king", "damage_type": "physical"}, null)
+	_expect(active_controller.get_rage() > rage_after_dealing_damage, "Damage received by the King also generates Rage.")
+	projectile_pool.set_combat_enabled(false)
+	active_controller.queue_free()
+	projectile_pool.queue_free()
+	front_goblin.queue_free()
+	rear_goblin.queue_free()
+	volley_goblin.queue_free()
 	king.queue_free()
 	await process_frame
 	game_session_service.end_session({"reason": "test_complete"})

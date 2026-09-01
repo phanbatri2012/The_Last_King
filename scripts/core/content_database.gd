@@ -15,6 +15,9 @@ var units: Dictionary = {}
 var weapon_archetypes: Dictionary = {}
 var king_skills: Dictionary = {}
 var king_progression: Dictionary = {}
+var active_king_skills: Dictionary = {}
+var active_skill_loadouts: Dictionary = {}
+var active_skill_system: Dictionary = {}
 var goblin_threat_progression: Dictionary = {}
 var content_version := ""
 var enemy_content_version := ""
@@ -36,6 +39,9 @@ func initialize() -> bool:
 	weapon_archetypes.clear()
 	king_skills.clear()
 	king_progression.clear()
+	active_king_skills.clear()
+	active_skill_loadouts.clear()
+	active_skill_system.clear()
 	goblin_threat_progression.clear()
 
 	var faction_source := _load_json(FACTION_ROSTER_PATH)
@@ -63,7 +69,14 @@ func initialize() -> bool:
 		push_error("Unit catalog is missing or invalid.")
 		return false
 	var skill_source := _load_json(KING_SKILL_CATALOG_PATH)
-	if skill_source.is_empty() or not skill_source.get("skills", null) is Array or not skill_source.get("progression", null) is Dictionary:
+	if (
+		skill_source.is_empty()
+		or not skill_source.get("skills", null) is Array
+		or not skill_source.get("progression", null) is Dictionary
+		or not skill_source.get("active_skill_system", null) is Dictionary
+		or not skill_source.get("active_skills", null) is Array
+		or not skill_source.get("active_skill_loadouts", null) is Array
+	):
 		push_error("King skill catalog is missing or invalid.")
 		return false
 
@@ -83,6 +96,13 @@ func initialize() -> bool:
 	if not _index_units(unit_source["units"], id_pattern):
 		return false
 	if not _index_king_skills(skill_source["skills"], skill_source["progression"], id_pattern):
+		return false
+	if not _index_active_king_skills(
+		skill_source["active_skills"],
+		skill_source["active_skill_loadouts"],
+		skill_source["active_skill_system"],
+		id_pattern
+	):
 		return false
 
 	content_version = str(king_source.get("content_version", ""))
@@ -583,6 +603,91 @@ func _index_king_skills(records: Array, progression: Dictionary, id_pattern: Reg
 	return true
 
 
+func _index_active_king_skills(
+	records: Array,
+	loadouts: Array,
+	system: Dictionary,
+	id_pattern: RegEx
+) -> bool:
+	if str(system.get("resource_id", "")) != "rage":
+		push_error("Active King skill resource must use the stable rage ID.")
+		return false
+	var maximum := float(system.get("maximum", 0.0))
+	var starting := float(system.get("starting", -1.0))
+	if maximum <= 0.0 or starting < 0.0 or starting > maximum:
+		push_error("Active King skill Rage bounds are invalid.")
+		return false
+	for gain_key in ["passive_gain_per_second", "damage_dealt_gain_per_point", "damage_taken_gain_per_point", "enemy_kill_gain", "boss_kill_gain"]:
+		if float(system.get(gain_key, -1.0)) < 0.0:
+			push_error("Active King skill Rage gain is invalid: %s" % gain_key)
+			return false
+	var supported_effects := ["directional_cone", "royal_guard", "piercing_fan"]
+	var used_slots: Dictionary = {}
+	for skill_value in records:
+		if not skill_value is Dictionary:
+			push_error("Active King skill catalog contains a non-object entry.")
+			return false
+		var skill: Dictionary = skill_value
+		var skill_id := str(skill.get("id", ""))
+		var slot := int(skill.get("slot", 0))
+		if id_pattern.search(skill_id) == null or active_king_skills.has(skill_id):
+			push_error("Active King skill ID is invalid or duplicated: %s" % skill_id)
+			return false
+		if slot < 1 or slot > 3 or used_slots.has(slot):
+			push_error("Active King skill slot is invalid or duplicated: %s" % skill_id)
+			return false
+		if str(skill.get("input_action", "")) != "active_skill_%d" % slot:
+			push_error("Active King skill input action does not match its slot: %s" % skill_id)
+			return false
+		if str(skill.get("effect_type", "")) not in supported_effects:
+			push_error("Active King skill effect is invalid: %s" % skill_id)
+			return false
+		if float(skill.get("rage_cost", 0.0)) <= 0.0 or float(skill.get("cooldown", 0.0)) <= 0.0:
+			push_error("Active King skill cost or cooldown is invalid: %s" % skill_id)
+			return false
+		if str(skill.get("name_key", "")).is_empty() or str(skill.get("description_key", "")).is_empty() or not skill.get("effect", null) is Dictionary:
+			push_error("Active King skill presentation or effect data is missing: %s" % skill_id)
+			return false
+		var effect: Dictionary = skill.get("effect", {})
+		match str(skill.get("effect_type", "")):
+			"directional_cone":
+				if float(effect.get("radius", 0.0)) <= 0.0 or float(effect.get("half_angle_degrees", 0.0)) <= 0.0 or float(effect.get("damage_multiplier", 0.0)) <= 0.0:
+					push_error("Directional cone active skill data is invalid: %s" % skill_id)
+					return false
+			"royal_guard":
+				var heal_fraction := float(effect.get("heal_max_health_fraction", 0.0))
+				if float(effect.get("duration", 0.0)) <= 0.0 or float(effect.get("armor_bonus", 0.0)) <= 0.0 or float(effect.get("magic_resistance_bonus", 0.0)) <= 0.0 or heal_fraction <= 0.0 or heal_fraction > 1.0:
+					push_error("Royal guard active skill data is invalid: %s" % skill_id)
+					return false
+			"piercing_fan":
+				for projectile_key in ["projectile_count", "spread_degrees", "damage_multiplier", "projectile_speed", "projectile_lifetime", "projectile_radius"]:
+					if float(effect.get(projectile_key, 0.0)) <= 0.0:
+						push_error("Piercing fan active skill data is invalid: %s.%s" % [skill_id, projectile_key])
+						return false
+		used_slots[slot] = skill_id
+		active_king_skills[skill_id] = skill.duplicate(true)
+	for loadout_value in loadouts:
+		if not loadout_value is Dictionary:
+			push_error("Active King skill loadout contains a non-object entry.")
+			return false
+		var loadout: Dictionary = loadout_value
+		var king_id := str(loadout.get("king_id", ""))
+		var skill_ids_value: Variant = loadout.get("skill_ids", null)
+		if not kings.has(king_id) or active_skill_loadouts.has(king_id) or not skill_ids_value is Array or skill_ids_value.size() != 3:
+			push_error("Active King skill loadout is invalid: %s" % king_id)
+			return false
+		var seen_ids: Dictionary = {}
+		for skill_id_value in skill_ids_value:
+			var skill_id := str(skill_id_value)
+			if not active_king_skills.has(skill_id) or seen_ids.has(skill_id):
+				push_error("Active King skill loadout references an invalid skill: %s" % skill_id)
+				return false
+			seen_ids[skill_id] = true
+		active_skill_loadouts[king_id] = skill_ids_value.duplicate()
+	active_skill_system = system.duplicate(true)
+	return true
+
+
 func get_faction(faction_id: StringName) -> Dictionary:
 	return factions.get(str(faction_id), {}).duplicate(true)
 
@@ -671,6 +776,27 @@ func get_king_skill_ids() -> PackedStringArray:
 
 func get_king_progression_config() -> Dictionary:
 	return king_progression.duplicate(true)
+
+
+func get_active_skill_system() -> Dictionary:
+	return active_skill_system.duplicate(true)
+
+
+func get_active_king_skill(skill_id: StringName) -> Dictionary:
+	return active_king_skills.get(str(skill_id), {}).duplicate(true)
+
+
+func get_active_skill_loadout(king_id: StringName) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var skill_ids_value: Variant = active_skill_loadouts.get(str(king_id), [])
+	if not skill_ids_value is Array:
+		return result
+	for skill_id_value in skill_ids_value:
+		var skill: Dictionary = active_king_skills.get(str(skill_id_value), {})
+		if not skill.is_empty():
+			result.append(skill.duplicate(true))
+	result.sort_custom(func(left: Dictionary, right: Dictionary) -> bool: return int(left.get("slot", 0)) < int(right.get("slot", 0)))
+	return result
 
 
 func get_goblin_threat_progression() -> Dictionary:

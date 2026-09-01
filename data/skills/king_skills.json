@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "content_version": "phase5.1",
+  "content_version": "phase7.0",
   "progression": {
     "base_xp_to_level": 60,
     "xp_growth_per_level": 30,
@@ -73,5 +73,53 @@
         {"radius": 330.0, "cooldown": 4.0, "damage_multiplier": 1.0}
       ]
     }
+  ],
+  "active_skill_system": {
+    "resource_id": "rage",
+    "maximum": 100.0,
+    "starting": 20.0,
+    "passive_gain_per_second": 0.8,
+    "damage_dealt_gain_per_point": 0.018,
+    "damage_taken_gain_per_point": 0.22,
+    "enemy_kill_gain": 4.0,
+    "boss_kill_gain": 15.0
+  },
+  "active_skills": [
+    {
+      "id": "van_kiep_sweep",
+      "name_key": "active_skill.van_kiep_sweep.name",
+      "description_key": "active_skill.van_kiep_sweep.description",
+      "effect_type": "directional_cone",
+      "slot": 1,
+      "input_action": "active_skill_1",
+      "rage_cost": 20.0,
+      "cooldown": 4.5,
+      "effect": {"radius": 310.0, "half_angle_degrees": 72.0, "damage_multiplier": 2.1}
+    },
+    {
+      "id": "iron_command",
+      "name_key": "active_skill.iron_command.name",
+      "description_key": "active_skill.iron_command.description",
+      "effect_type": "royal_guard",
+      "slot": 2,
+      "input_action": "active_skill_2",
+      "rage_cost": 30.0,
+      "cooldown": 13.0,
+      "effect": {"duration": 4.5, "armor_bonus": 34.0, "magic_resistance_bonus": 30.0, "heal_max_health_fraction": 0.1}
+    },
+    {
+      "id": "bach_dang_volley",
+      "name_key": "active_skill.bach_dang_volley.name",
+      "description_key": "active_skill.bach_dang_volley.description",
+      "effect_type": "piercing_fan",
+      "slot": 3,
+      "input_action": "active_skill_3",
+      "rage_cost": 70.0,
+      "cooldown": 18.0,
+      "effect": {"projectile_count": 9, "spread_degrees": 68.0, "damage_multiplier": 1.65, "projectile_speed": 920.0, "projectile_lifetime": 1.45, "projectile_radius": 12.0}
+    }
+  ],
+  "active_skill_loadouts": [
+    {"king_id": "tran_hung_dao", "skill_ids": ["van_kiep_sweep", "iron_command", "bach_dang_volley"]}
   ]
 }

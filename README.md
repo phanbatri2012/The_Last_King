@@ -4,7 +4,7 @@ Top-down historical-fantasy survivor with army building, roguelite runs, and per
 
 Rise as a legendary ruler, survive enemy hordes, command ancient armies, collect gold, unlock skills, summon iconic warriors, and defeat colossal bosses.
 
-## Phase 6 Goblin threat and Boss progression status
+## Phase 7 Active royal skills and run loop status
 
 This repository contains the technical foundation and the first playable combat slice:
 
@@ -33,7 +33,7 @@ This repository contains the technical foundation and the first playable combat 
 - seven data-driven Đại Việt units: Spearman, Crossbowman, Royal Guard, Ambush Archer, Raider, Elephant Guard, and Royal War Elephant;
 - distinct health, defense, speed, damage, reach, attack rate, summon cost, capacity cost, formation role, and placeholder silhouette for every unit;
 - real pooled allied arrows and crossbow bolts with travel time and collision;
-- a two-column touch/click roster plus PC/Web number-key hotkeys `1–7` (`Q` remains the Spearman shortcut), with no fixed living-soldier limit;
+- a two-column touch/click roster plus PC/Web number-key hotkeys `1–7`, with no fixed living-soldier limit;
 - five run-Gold upgrade levels for every Đại Việt unit type, applied immediately to existing soldiers and inherited by future summons;
 - allied health, armor, formation following, automatic targeting, attacks, death events, and blue health bars;
 - Goblin retaliation against allied attackers and Continue snapshots for the living army;
@@ -45,13 +45,16 @@ This repository contains the technical foundation and the first playable combat 
 - six three-rank King skills covering damage, attack/movement speed, reach, health/defense, unlimited-piercing royal waves, and periodic area damage, now with distinct upgrade/cast effects;
 - a battle-pausing bilingual level-up overlay that shows each skill's current/next rank and localized description, plus Continue snapshots for XP, Run Level, skill ranks, skill-choice RNG, and army upgrades;
 - an uncluttered summon HUD with unit-upgrade details moved into an on-demand, battle-pausing overlay opened by click/touch or the `U` key;
+- a data-driven Rage resource gained from combat, damage taken, kills, and steady battlefield momentum, with full Continue state;
+- three localized Trần Hưng Đạo active skills on touch buttons and `Q/E/R`: a forward piercing sword cone, a timed defensive/healing command, and a pooled piercing royal-wave ultimate;
+- live Rage, readiness, cost, and cooldown feedback plus distinct auto-aimed cast effects and persistent guard feedback;
 - a seeded Boss Director with the full twelve-Boss ladder from Goblin Brute at 1:30 through Goblin God-King at 30:00, pre-Boss pressure reduction, post-kill relief, rewards, and Ascendant cycles after minute 30;
 - one readable signature skill per Boss, enhanced below 50% HP, with movement counterplay, recovery windows, centralized damage, add spawning, Stagger vulnerability, and Continue state;
-- localized combat HUD, defeat/retry flow, desktop Exit Game button, and in-memory Continue state;
+- localized combat HUD, defeat/retry flow, a scored run summary, desktop Exit Game button, and in-memory Continue state;
 - desktop and web export presets;
 - headless smoke tests.
 
-Persistent account progression, manual skill activation, destructible Boss objectives, and polished historical art remain later slices.
+Persistent account progression, destructible Boss objectives, and polished historical art remain later slices.
 
 ## Toolchain
 

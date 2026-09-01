@@ -7,7 +7,7 @@ config_version=5
 
 config/name="The Last King"
 config/description="Top-down historical-fantasy survivor with army building and roguelite progression."
-config/version="0.6.0"
+config/version="0.7.0"
 run/main_scene="res://scenes/bootstrap/bootstrap.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
@@ -60,9 +60,17 @@ pause_game={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":4194305)]
 }
-summon_spearman={
+active_skill_1={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":81)]
+}
+active_skill_2={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":69)]
+}
+active_skill_3={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":82), Object(InputEventKey,"physical_keycode":32)]
 }
 summon_unit_1={
 "deadzone": 0.5,

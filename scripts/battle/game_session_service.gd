@@ -184,6 +184,40 @@ func get_progression_rng_state() -> int:
 	return int(active_session.rng_state.get("king_progression", 0))
 
 
+func set_active_skill_state(runtime_state: Dictionary) -> void:
+	if active_session == null:
+		return
+	active_session.active_skills = runtime_state.duplicate(true)
+
+
+func get_active_skill_state() -> Dictionary:
+	if active_session == null:
+		return {}
+	return active_session.active_skills.duplicate(true)
+
+
+func increment_run_stat(stat_id: StringName, amount: int = 1) -> int:
+	if active_session == null or amount == 0:
+		return 0
+	var key := str(stat_id)
+	active_session.run_stats[key] = maxi(int(active_session.run_stats.get(key, 0)) + amount, 0)
+	return int(active_session.run_stats[key])
+
+
+func set_run_stat_maximum(stat_id: StringName, value: int) -> int:
+	if active_session == null:
+		return 0
+	var key := str(stat_id)
+	active_session.run_stats[key] = maxi(int(active_session.run_stats.get(key, 0)), value)
+	return int(active_session.run_stats[key])
+
+
+func get_run_stats() -> Dictionary:
+	if active_session == null:
+		return {}
+	return active_session.run_stats.duplicate(true)
+
+
 func _on_pause_state_changed(paused: bool) -> void:
 	game_clock.paused = paused
 	get_tree().paused = paused

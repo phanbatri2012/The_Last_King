@@ -21,6 +21,10 @@ var _base_move_speed := 340.0
 var _base_max_health := 260.0
 var _base_armor := 0.0
 var _base_magic_resistance := 0.0
+var _skill_armor_bonus := 0.0
+var _skill_magic_resistance_bonus := 0.0
+var _temporary_armor_bonus := 0.0
+var _temporary_magic_resistance_bonus := 0.0
 var _virtual_direction := Vector2.ZERO
 var _pointer_direction := Vector2.ZERO
 var _keyboard_enabled := true
@@ -83,7 +87,7 @@ func configure(config: Dictionary) -> void:
 	if defense_value is Dictionary:
 		_base_armor = float(defense_value.get("armor", defense.armor))
 		_base_magic_resistance = float(defense_value.get("magic_resistance", defense.magic_resistance))
-		defense.configure({"armor": _base_armor, "magic_resistance": _base_magic_resistance})
+		_recompute_defense()
 	var attack_value: Variant = config.get("attack", {})
 	if attack_value is Dictionary:
 		auto_attack.configure(attack_value, weapon_archetype)
@@ -153,10 +157,15 @@ func apply_skill_modifiers(
 	var new_max_health := maxf(_base_max_health + max_health_bonus, 1.0)
 	var added_health := maxf(new_max_health - old_max_health, 0.0)
 	health.configure(new_max_health, minf(old_current_health + added_health, new_max_health))
-	defense.configure({
-		"armor": _base_armor + maxf(armor_bonus, 0.0),
-		"magic_resistance": _base_magic_resistance + maxf(magic_resistance_bonus, 0.0),
-	})
+	_skill_armor_bonus = maxf(armor_bonus, 0.0)
+	_skill_magic_resistance_bonus = maxf(magic_resistance_bonus, 0.0)
+	_recompute_defense()
+
+
+func set_temporary_defense_bonus(armor_bonus: float, magic_resistance_bonus: float) -> void:
+	_temporary_armor_bonus = maxf(armor_bonus, 0.0)
+	_temporary_magic_resistance_bonus = maxf(magic_resistance_bonus, 0.0)
+	_recompute_defense()
 
 
 func is_combat_alive() -> bool:
@@ -167,6 +176,15 @@ func _apply_collision_radius() -> void:
 	var circle := collision_shape.shape as CircleShape2D
 	if circle != null:
 		circle.radius = collision_radius
+
+
+func _recompute_defense() -> void:
+	if defense == null:
+		return
+	defense.configure({
+		"armor": _base_armor + _skill_armor_bonus + _temporary_armor_bonus,
+		"magic_resistance": _base_magic_resistance + _skill_magic_resistance_bonus + _temporary_magic_resistance_bonus,
+	})
 
 
 func _clamp_to_movement_bounds() -> void:
@@ -184,6 +202,7 @@ func _on_health_changed(current: float, maximum: float, delta: float, _context: 
 
 
 func _on_died(context: Dictionary) -> void:
+	set_temporary_defense_bonus(0.0, 0.0)
 	set_movement_enabled(false)
 	set_keyboard_enabled(false)
 	auto_attack.set_combat_enabled(false)

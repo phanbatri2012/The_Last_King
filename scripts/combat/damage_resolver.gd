@@ -29,4 +29,9 @@ static func apply_damage(
 	result["remaining_health"] = target.current_health
 	result["killed"] = not target.is_alive()
 	result["accepted"] = applied > 0.0
+	var main_loop := Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var event_bus := (main_loop as SceneTree).root.get_node_or_null("GameEventBus")
+		if event_bus != null:
+			event_bus.damage_resolved.emit(result, context)
 	return result

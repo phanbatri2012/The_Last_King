@@ -10,7 +10,6 @@ const EFFECTIVE_CAMERA_LIMIT := 2147480000
 const DEFEATED_ENEMY_CLEANUP_SEC := 0.7
 const DENSITY_REBALANCE_INTERVAL_SEC := 1.0
 const MAX_ENEMY_DISTANCE_FROM_KING := 1700.0
-const SPEARMAN_ID := &"dai_viet_spearman"
 const HOLD_MOVE_STOP_RADIUS := 52.0
 const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 
@@ -22,6 +21,7 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 @onready var ally_projectile_pool: AllyProjectilePool = %AllyProjectilePool
 @onready var army_controller: ArmyController = %ArmyController
 @onready var king_skill_runtime: KingSkillRuntime = %KingSkillRuntime
+@onready var king_active_skill_controller: KingActiveSkillController = %KingActiveSkillController
 @onready var king_progression_controller: KingProgressionController = %KingProgressionController
 @onready var king: KingController = %King
 @onready var joystick: MovementJoystick = %VirtualJoystick
@@ -42,6 +42,12 @@ const HOLD_MOVE_FULL_SPEED_RADIUS := 190.0
 @onready var upgrade_grid: GridContainer = %UpgradeGrid
 @onready var upgrade_button_template: Button = %UpgradeButtonTemplate
 @onready var upgrade_close_button: Button = %UpgradeCloseButton
+@onready var active_skill_title_label: Label = %ActiveSkillTitleLabel
+@onready var rage_label: Label = %RageLabel
+@onready var rage_bar: ProgressBar = %RageBar
+@onready var active_skill_button_1: Button = %ActiveSkillButton1
+@onready var active_skill_button_2: Button = %ActiveSkillButton2
+@onready var active_skill_button_3: Button = %ActiveSkillButton3
 @onready var control_hint_label: Label = %ControlHintLabel
 @onready var scope_hint_label: Label = %ScopeHintLabel
 @onready var target_label: Label = %TargetLabel
@@ -117,6 +123,13 @@ func _ready() -> void:
 		GameSessionService.get_skill_state(),
 		GameSessionService.get_progression_rng_state()
 	)
+	king_active_skill_controller.configure(
+		king,
+		ally_projectile_pool,
+		ContentDatabase.get_active_skill_system(),
+		ContentDatabase.get_active_skill_loadout(king.king_id),
+		GameSessionService.get_active_skill_state()
+	)
 	var army_capacity_data: Dictionary = _king_config.get("army_capacity", {})
 	army_controller.configure(
 		king,
@@ -127,6 +140,7 @@ func _ready() -> void:
 		bool(army_capacity_data.get("unlimited", false)),
 		GameSessionService.get_army_upgrade_state()
 	)
+	GameSessionService.set_run_stat_maximum(&"max_army_size", army_controller.get_living_unit_count())
 	_build_summon_controls()
 	_build_upgrade_controls()
 	_configure_infinite_world()
@@ -149,6 +163,12 @@ func _ready() -> void:
 	army_controller.upgrade_changed.connect(_on_army_upgrade_changed)
 	upgrade_menu_button.pressed.connect(_open_upgrade_overlay)
 	upgrade_close_button.pressed.connect(_close_upgrade_overlay)
+	active_skill_button_1.pressed.connect(_cast_active_skill.bind(1))
+	active_skill_button_2.pressed.connect(_cast_active_skill.bind(2))
+	active_skill_button_3.pressed.connect(_cast_active_skill.bind(3))
+	king_active_skill_controller.resource_changed.connect(_on_active_skill_state_changed)
+	king_active_skill_controller.skill_state_changed.connect(_on_active_skill_state_changed)
+	king_active_skill_controller.skill_cast.connect(_on_active_skill_cast)
 	skill_card_1.pressed.connect(_select_skill_choice.bind(0))
 	skill_card_2.pressed.connect(_select_skill_choice.bind(1))
 	skill_card_3.pressed.connect(_select_skill_choice.bind(2))
@@ -157,6 +177,8 @@ func _ready() -> void:
 	_refresh_static_text()
 	_refresh_live_text()
 	death_overlay.visible = not king.is_combat_alive()
+	if death_overlay.visible:
+		defeat_detail_label.text = LocalizationService.translate_key("phase7.defeat_summary", _build_battle_result())
 	enemy_spawn_director.set_active(king.is_combat_alive())
 
 
@@ -187,6 +209,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if upgrade_overlay.visible:
 		return
+	for skill_slot in range(1, 4):
+		if event.is_action_pressed("active_skill_%d" % skill_slot):
+			get_viewport().set_input_as_handled()
+			_cast_active_skill(skill_slot)
+			return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		if _hold_touch_index == -1 and king.is_combat_alive():
 			_hold_mouse_active = true
@@ -198,10 +225,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			_hold_touch_index = event.index
 			_hold_pointer_position = event.position
 			get_viewport().set_input_as_handled()
-		return
-	if event.is_action_pressed("summon_spearman"):
-		get_viewport().set_input_as_handled()
-		_summon_spearman()
 		return
 	for hotkey_slot in range(1, 8):
 		if event.is_action_pressed("summon_unit_%d" % hotkey_slot):
@@ -590,6 +613,7 @@ func _store_combat_state() -> void:
 	)
 	GameSessionService.set_army_state(army_controller.get_army_snapshot())
 	GameSessionService.set_army_upgrade_state(army_controller.get_upgrade_levels())
+	GameSessionService.set_active_skill_state(king_active_skill_controller.get_runtime_snapshot())
 
 
 func _living_enemy_count() -> int:
@@ -629,6 +653,7 @@ func _refresh_static_text() -> void:
 	upgrade_menu_button.text = LocalizationService.translate_key("phase5.open_upgrades")
 	upgrade_roster_label.text = LocalizationService.translate_key("phase5.upgrade_roster")
 	upgrade_close_button.text = LocalizationService.translate_key("phase5.close_upgrades")
+	active_skill_title_label.text = LocalizationService.translate_key("phase7.active_skills")
 	level_up_title_label.text = LocalizationService.translate_key("phase5.level_up_title")
 	level_up_hint_label.text = LocalizationService.translate_key("phase5.level_up_hint")
 	back_button.text = LocalizationService.translate_key("phase2.back_to_menu")
@@ -663,6 +688,7 @@ func _refresh_live_text() -> void:
 		"phase2.run_gold",
 		{"amount": RewardGrantService.get_run_gold()}
 	)
+	_refresh_active_skill_hud()
 	if army_controller.unlimited_summons:
 		army_capacity_label.text = LocalizationService.translate_key(
 			"phase5.army_unlimited",
@@ -732,15 +758,19 @@ func _refresh_live_text() -> void:
 		target_label.text = LocalizationService.translate_key("phase2.reinforcements")
 	else:
 		target_label.text = LocalizationService.translate_key("phase2.no_target")
+	if death_overlay.visible:
+		defeat_detail_label.text = LocalizationService.translate_key("phase7.defeat_summary", _build_battle_result())
 
 
 func _on_enemy_defeated(enemy: GoblinController, _context: Dictionary) -> void:
 	var defeated_position := enemy.global_position
 	var defeated_boss := enemy as BossController
 	if defeated_boss != null:
+		GameSessionService.increment_run_stat(&"bosses_defeated")
 		_active_bosses.erase(enemy.instance_id)
 		boss_director.mark_defeated(defeated_boss.boss_id, enemy.instance_id, _get_elapsed_time())
 	else:
+		GameSessionService.increment_run_stat(&"enemies_defeated")
 		_training_enemies.erase(enemy.instance_id)
 	var pickup_id := "run_gold_%08d" % _next_pickup_serial
 	_next_pickup_serial += 1
@@ -801,8 +831,9 @@ func _on_boss_add_requested(request: Dictionary) -> void:
 	_refresh_live_text()
 
 
-func _on_gold_collected(pickup: RunGoldPickup, _amount: int) -> void:
+func _on_gold_collected(pickup: RunGoldPickup, amount: int) -> void:
 	_gold_pickups.erase(pickup.pickup_id)
+	GameSessionService.increment_run_stat(&"gold_collected", amount)
 	_store_combat_state()
 	_refresh_live_text()
 
@@ -819,10 +850,6 @@ func _on_run_gold_granted(_amount: int, _total: int, _context: Dictionary) -> vo
 
 func _on_run_gold_spent(_amount: int, _total: int, _context: Dictionary) -> void:
 	_refresh_live_text()
-
-
-func _summon_spearman() -> void:
-	_summon_unit(SPEARMAN_ID)
 
 
 func _summon_unit(unit_id: StringName) -> void:
@@ -861,6 +888,7 @@ func _on_army_capacity_changed(_used: int, _maximum: int) -> void:
 
 
 func _on_unit_summoned(_unit: SummonedUnitController) -> void:
+	GameSessionService.set_run_stat_maximum(&"max_army_size", army_controller.get_living_unit_count())
 	_store_combat_state()
 	_refresh_live_text()
 
@@ -939,6 +967,9 @@ func _on_king_defeated(_context: Dictionary) -> void:
 		if is_instance_valid(boss):
 			boss.set_target(king)
 	death_overlay.visible = true
+	var result := _build_battle_result()
+	GameSessionService.active_session.battle_score = int(result.get("score", 0))
+	defeat_detail_label.text = LocalizationService.translate_key("phase7.defeat_summary", result)
 	_store_combat_state()
 	_refresh_live_text()
 
@@ -979,10 +1010,85 @@ func _return_to_menu() -> void:
 	projectile_pool.set_combat_enabled(false)
 	ally_projectile_pool.set_combat_enabled(false)
 	army_controller.set_combat_enabled(false)
-	_store_combat_state()
+	if king.is_combat_alive():
+		_store_combat_state()
+	else:
+		_skip_exit_snapshot = true
+		GameSessionService.end_session(_build_battle_result())
 	GameSessionService.pause_manager.clear_pause(PauseManager.LEVEL_UP)
 	GameSessionService.pause_manager.clear_pause(PauseManager.ARMY_UPGRADE)
 	SceneService.change_scene_to_file("res://scenes/menus/main_menu.tscn")
+
+
+func _cast_active_skill(slot: int) -> void:
+	if upgrade_overlay.visible or level_up_overlay.visible or death_overlay.visible:
+		return
+	king_active_skill_controller.try_cast_slot(slot)
+	_refresh_active_skill_hud()
+
+
+func _on_active_skill_state_changed(_current: float = 0.0, _maximum: float = 0.0) -> void:
+	_refresh_active_skill_hud()
+
+
+func _on_active_skill_cast(_skill_id: StringName, _affected_targets: int) -> void:
+	GameSessionService.increment_run_stat(&"active_skills_cast")
+	_store_combat_state()
+	_refresh_active_skill_hud()
+
+
+func _refresh_active_skill_hud() -> void:
+	if not is_instance_valid(king_active_skill_controller):
+		return
+	var current_rage := king_active_skill_controller.get_rage()
+	var maximum_rage := king_active_skill_controller.get_maximum_rage()
+	rage_bar.max_value = maximum_rage
+	rage_bar.value = current_rage
+	rage_label.text = LocalizationService.translate_key("phase7.rage", {"current": floori(current_rage), "max": floori(maximum_rage)})
+	var buttons: Array[Button] = [active_skill_button_1, active_skill_button_2, active_skill_button_3]
+	var hotkeys := ["Q", "E", "R"]
+	for index in buttons.size():
+		var slot := index + 1
+		var button := buttons[index]
+		var skill := king_active_skill_controller.get_skill_config(slot)
+		var state := king_active_skill_controller.get_slot_state(slot)
+		if skill.is_empty() or state.is_empty():
+			button.visible = false
+			continue
+		button.visible = true
+		var name := LocalizationService.translate_key(str(skill.get("name_key", "")))
+		var cost := ceili(float(state.get("rage_cost", 0.0)))
+		var cooldown := float(state.get("cooldown_remaining", 0.0))
+		if cooldown > 0.0:
+			button.text = LocalizationService.translate_key("phase7.skill_cooldown", {"hotkey": hotkeys[index], "name": name, "cooldown": snappedf(cooldown, 0.1)})
+		elif not bool(state.get("has_rage", false)):
+			button.text = LocalizationService.translate_key("phase7.skill_no_rage", {"hotkey": hotkeys[index], "name": name, "cost": cost})
+		else:
+			button.text = LocalizationService.translate_key("phase7.skill_ready", {"hotkey": hotkeys[index], "name": name, "cost": cost})
+		button.tooltip_text = LocalizationService.translate_key(str(skill.get("description_key", "")))
+		button.disabled = not bool(state.get("ready", false)) or upgrade_overlay.visible or level_up_overlay.visible or death_overlay.visible
+
+
+func _build_battle_result() -> Dictionary:
+	if not GameSessionService.has_active_session():
+		return {"time": 0.0, "score": 0, "enemies": 0, "bosses": 0, "level": 1, "gold": 0, "army": 0, "skills": 0}
+	var session := GameSessionService.active_session
+	var stats := GameSessionService.get_run_stats()
+	var enemies := int(stats.get("enemies_defeated", 0))
+	var bosses := int(stats.get("bosses_defeated", 0))
+	var skill_casts := int(stats.get("active_skills_cast", 0))
+	var score := enemies * 10 + bosses * 250 + floori(session.elapsed_time * 2.0) + maxi(session.run_level - 1, 0) * 100
+	return {
+		"reason": "king_defeated",
+		"time": snappedf(session.elapsed_time, 0.1),
+		"score": score,
+		"enemies": enemies,
+		"bosses": bosses,
+		"level": session.run_level,
+		"gold": session.run_gold,
+		"army": int(stats.get("max_army_size", 0)),
+		"skills": skill_casts,
+	}
 
 
 func _update_hold_move_direction() -> void:
