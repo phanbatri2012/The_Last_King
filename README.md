@@ -4,7 +4,7 @@ Top-down historical-fantasy survivor with army building, roguelite runs, and per
 
 Rise as a legendary ruler, survive enemy hordes, command ancient armies, collect gold, unlock skills, summon iconic warriors, and defeat colossal bosses.
 
-## Phase 7 Active royal skills and run loop status
+## Phase 8 Royal Treasury and persistent progression status
 
 This repository contains the technical foundation and the first playable combat slice:
 
@@ -48,13 +48,17 @@ This repository contains the technical foundation and the first playable combat 
 - a data-driven Rage resource gained from combat, damage taken, kills, and steady battlefield momentum, with full Continue state;
 - three localized Trần Hưng Đạo active skills on touch buttons and `Q/E/R`: a forward piercing sword cone, a timed defensive/healing command, and a pooled piercing royal-wave ultimate;
 - live Rage, readiness, cost, and cooldown feedback plus distinct auto-aimed cast effects and persistent guard feedback;
+- persistent Account Gold earned only when a defeated run is settled, with duplicate-claim protection and career statistics;
+- a bilingual Royal Treasury at the main court with four five-rank permanent upgrade paths for health, attack damage, movement/defense, and starting Run Gold;
+- permanent bonuses applied data-first to each new battle while temporary `run_gold` remains isolated from the saved profile;
+- profile schema migration from Phase 7 saves and immediate local persistence after rewards or treasury purchases;
 - a seeded Boss Director with the full twelve-Boss ladder from Goblin Brute at 1:30 through Goblin God-King at 30:00, pre-Boss pressure reduction, post-kill relief, rewards, and Ascendant cycles after minute 30;
 - one readable signature skill per Boss, enhanced below 50% HP, with movement counterplay, recovery windows, centralized damage, add spawning, Stagger vulnerability, and Continue state;
 - localized combat HUD, defeat/retry flow, a scored run summary, desktop Exit Game button, and in-memory Continue state;
 - desktop and web export presets;
 - headless smoke tests.
 
-Persistent account progression, destructible Boss objectives, and polished historical art remain later slices.
+Destructible Boss objectives and polished historical art remain later slices.
 
 ## Toolchain
 

@@ -16,10 +16,11 @@ func initialize() -> bool:
 		ContentDatabase,
 		SaveService,
 		PlayerProfileService,
+		RewardGrantService,
+		AccountProgressionService,
 		LeaderboardService,
 		AudioService,
 		GameSessionService,
-		RewardGrantService,
 		SceneService,
 	]
 

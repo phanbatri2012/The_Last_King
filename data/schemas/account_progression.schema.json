@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The Last King account progression",
+  "type": "object",
+  "required": ["schema_version", "content_version", "reward_curve", "upgrades"],
+  "properties": {
+    "schema_version": {"type": "integer", "minimum": 1},
+    "content_version": {"type": "string", "minLength": 1},
+    "reward_curve": {
+      "type": "object",
+      "required": ["base_account_gold", "per_30_seconds", "per_enemy", "per_boss", "per_run_level_after_first"],
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "upgrades": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name_key", "description_key", "max_level", "costs", "effects_per_level"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$"},
+          "name_key": {"type": "string", "minLength": 1},
+          "description_key": {"type": "string", "minLength": 1},
+          "max_level": {"type": "integer", "minimum": 1},
+          "costs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "integer", "minimum": 1}
+          },
+          "effects_per_level": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {"type": "number", "exclusiveMinimum": 0}
+          }
+        }
+      }
+    }
+  }
+}

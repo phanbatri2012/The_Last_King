@@ -7,6 +7,7 @@ const GOBLIN_THREAT_PATH := "res://data/enemies/goblin_threat_progression.json"
 const WEAPON_ARCHETYPE_PATH := "res://data/combat/weapon_archetypes.json"
 const UNIT_CATALOG_PATH := "res://data/units/units.json"
 const KING_SKILL_CATALOG_PATH := "res://data/skills/king_skills.json"
+const ACCOUNT_PROGRESSION_PATH := "res://data/progression/account_progression.json"
 
 var factions: Dictionary = {}
 var kings: Dictionary = {}
@@ -19,12 +20,14 @@ var active_king_skills: Dictionary = {}
 var active_skill_loadouts: Dictionary = {}
 var active_skill_system: Dictionary = {}
 var goblin_threat_progression: Dictionary = {}
+var account_progression: Dictionary = {}
 var content_version := ""
 var enemy_content_version := ""
 var weapon_content_version := ""
 var unit_content_version := ""
 var skill_content_version := ""
 var threat_content_version := ""
+var account_progression_content_version := ""
 var _initialized := false
 
 
@@ -43,6 +46,7 @@ func initialize() -> bool:
 	active_skill_loadouts.clear()
 	active_skill_system.clear()
 	goblin_threat_progression.clear()
+	account_progression.clear()
 
 	var faction_source := _load_json(FACTION_ROSTER_PATH)
 	if faction_source.is_empty() or not faction_source.get("factions", null) is Array:
@@ -79,6 +83,14 @@ func initialize() -> bool:
 	):
 		push_error("King skill catalog is missing or invalid.")
 		return false
+	var account_progression_source := _load_json(ACCOUNT_PROGRESSION_PATH)
+	if (
+		account_progression_source.is_empty()
+		or not account_progression_source.get("reward_curve", null) is Dictionary
+		or not account_progression_source.get("upgrades", null) is Array
+	):
+		push_error("Account progression catalog is missing or invalid.")
+		return false
 
 	var id_pattern := RegEx.new()
 	id_pattern.compile("^[a-z0-9]+(?:_[a-z0-9]+)*$")
@@ -103,6 +115,8 @@ func initialize() -> bool:
 		skill_source["active_skill_system"],
 		id_pattern
 	):
+		return false
+	if not _validate_account_progression(account_progression_source, id_pattern):
 		return false
 
 	content_version = str(king_source.get("content_version", ""))
@@ -129,8 +143,62 @@ func initialize() -> bool:
 	if threat_content_version.is_empty():
 		push_error("Goblin threat progression content_version is missing.")
 		return false
+	account_progression_content_version = str(account_progression_source.get("content_version", ""))
+	if account_progression_content_version.is_empty():
+		push_error("Account progression content_version is missing.")
+		return false
 
 	_initialized = true
+	return true
+
+
+func _validate_account_progression(source: Dictionary, id_pattern: RegEx) -> bool:
+	var reward_curve: Dictionary = source.get("reward_curve", {})
+	for reward_key in ["base_account_gold", "per_30_seconds", "per_enemy", "per_boss", "per_run_level_after_first"]:
+		if int(reward_curve.get(reward_key, -1)) < 0:
+			push_error("Account reward curve value is invalid: %s" % reward_key)
+			return false
+	var supported_effects := [
+		"max_health_flat",
+		"attack_damage_multiplier",
+		"move_speed_multiplier",
+		"armor_flat",
+		"magic_resistance_flat",
+		"starting_run_gold_flat",
+	]
+	var indexed_upgrades: Dictionary = {}
+	for upgrade_value in source.get("upgrades", []):
+		if not upgrade_value is Dictionary:
+			push_error("Account progression contains a non-object upgrade.")
+			return false
+		var upgrade: Dictionary = upgrade_value
+		var upgrade_id := str(upgrade.get("id", ""))
+		var max_level := int(upgrade.get("max_level", 0))
+		var costs_value: Variant = upgrade.get("costs", null)
+		var effects_value: Variant = upgrade.get("effects_per_level", null)
+		if id_pattern.search(upgrade_id) == null or indexed_upgrades.has(upgrade_id):
+			push_error("Account upgrade ID is invalid or duplicated: %s" % upgrade_id)
+			return false
+		if str(upgrade.get("name_key", "")).is_empty() or str(upgrade.get("description_key", "")).is_empty():
+			push_error("Account upgrade localization keys are missing: %s" % upgrade_id)
+			return false
+		if max_level <= 0 or not costs_value is Array or costs_value.size() != max_level:
+			push_error("Account upgrade cost curve is invalid: %s" % upgrade_id)
+			return false
+		for cost_value in costs_value:
+			if int(cost_value) <= 0:
+				push_error("Account upgrade cost must be positive: %s" % upgrade_id)
+				return false
+		if not effects_value is Dictionary or effects_value.is_empty():
+			push_error("Account upgrade effects are missing: %s" % upgrade_id)
+			return false
+		for effect_key_value in effects_value.keys():
+			var effect_key := str(effect_key_value)
+			if effect_key not in supported_effects or float(effects_value[effect_key_value]) <= 0.0:
+				push_error("Account upgrade effect is invalid: %s.%s" % [upgrade_id, effect_key])
+				return false
+		indexed_upgrades[upgrade_id] = upgrade.duplicate(true)
+	account_progression = source.duplicate(true)
 	return true
 
 
@@ -811,6 +879,25 @@ func get_goblin_bosses() -> Array[Dictionary]:
 			if boss_value is Dictionary:
 				result.append(boss_value.duplicate(true))
 	return result
+
+
+func get_account_progression() -> Dictionary:
+	return account_progression.duplicate(true)
+
+
+func get_account_upgrade(upgrade_id: StringName) -> Dictionary:
+	for upgrade_value in account_progression.get("upgrades", []):
+		if upgrade_value is Dictionary and str(upgrade_value.get("id", "")) == str(upgrade_id):
+			return upgrade_value.duplicate(true)
+	return {}
+
+
+func get_account_upgrade_ids() -> PackedStringArray:
+	var ids := PackedStringArray()
+	for upgrade_value in account_progression.get("upgrades", []):
+		if upgrade_value is Dictionary:
+			ids.append(str(upgrade_value.get("id", "")))
+	return ids
 
 
 func _valid_positive_bounds(bounds: Dictionary) -> bool:

@@ -9,7 +9,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	print("[TEST] The Last King Phase 7 active royal skills")
+	print("[TEST] The Last King Phase 8 persistent royal treasury")
 	_test_project_configuration()
 	_test_scenes_load()
 	_test_faction_roster()
@@ -19,6 +19,7 @@ func _run() -> void:
 	_test_goblin_threat_progression()
 	_test_unit_catalog()
 	_test_king_skill_catalog()
+	_test_account_progression_catalog()
 	_test_localization_catalogs()
 	_test_platform_adapter()
 	_test_battle_session_serialization()
@@ -51,6 +52,7 @@ func _run() -> void:
 	await _test_desktop_menu_exit_runtime()
 	_test_pause_manager()
 	_test_default_profile()
+	_test_profile_progression_transactions()
 
 	if _failures.is_empty():
 		print("[TEST] PASS (%d assertions)" % _assertion_count)
@@ -65,7 +67,7 @@ func _run() -> void:
 
 func _test_project_configuration() -> void:
 	_expect(ProjectSettings.get_setting("application/config/name") == "The Last King", "Project name is canonical.")
-	_expect(ProjectSettings.get_setting("application/config/version") == "0.7.0", "Game version is independent and explicit.")
+	_expect(ProjectSettings.get_setting("application/config/version") == "0.8.0", "Game version is independent and explicit.")
 	var project_file := _read_text("res://project.godot")
 	_expect(project_file.contains("run/main_scene=\"res://scenes/bootstrap/bootstrap.tscn\""), "Bootstrap is configured as the main scene.")
 	_expect(ProjectSettings.get_setting("rendering/renderer/rendering_method") == "gl_compatibility", "Compatibility renderer is enabled.")
@@ -73,6 +75,7 @@ func _test_project_configuration() -> void:
 	_expect(FileAccess.file_exists("res://.github/workflows/build-web.yml"), "GitHub Actions Web artifact workflow exists.")
 	_expect(FileAccess.file_exists("res://AGENTS.md"), "Project rules exist.")
 	_expect(ProjectSettings.has_setting("autoload/RewardGrantService"), "Central reward grant service is registered.")
+	_expect(ProjectSettings.has_setting("autoload/AccountProgressionService"), "Persistent account progression service is registered.")
 	var export_presets := _read_text("res://export_presets.cfg")
 	_expect(export_presets.contains("name=\"Web Preview\""), "A stock-template Web preview export preset exists.")
 	var web_workflow := _read_text("res://.github/workflows/build-web.yml")
@@ -471,6 +474,49 @@ func _test_king_skill_catalog() -> void:
 	_expect(content_database.get_active_skill_loadout(&"tran_hung_dao").size() == 3, "Content database resolves Trần Hưng Đạo's active loadout.")
 
 
+func _test_account_progression_catalog() -> void:
+	var catalog := _load_json("res://data/progression/account_progression.json")
+	var english := _load_json("res://localization/en-US/common.json")
+	var vietnamese := _load_json("res://localization/vi-VN/common.json")
+	_expect(int(catalog.get("schema_version", 0)) == 1, "Account progression catalog is versioned.")
+	_expect(str(catalog.get("content_version", "")).begins_with("phase8"), "Account progression catalog identifies Phase 8 content.")
+	var reward_curve: Dictionary = catalog.get("reward_curve", {})
+	for reward_key in ["base_account_gold", "per_30_seconds", "per_enemy", "per_boss", "per_run_level_after_first"]:
+		_expect(int(reward_curve.get(reward_key, -1)) >= 0, "Account reward component is non-negative: %s" % reward_key)
+	var upgrades: Array = catalog.get("upgrades", [])
+	_expect(upgrades.size() == 4, "Royal Treasury launches with four permanent upgrade paths.")
+	var seen_ids: Dictionary = {}
+	for upgrade_value in upgrades:
+		var upgrade: Dictionary = upgrade_value
+		var upgrade_id := str(upgrade.get("id", ""))
+		var max_level := int(upgrade.get("max_level", 0))
+		var costs: Array = upgrade.get("costs", [])
+		_expect(not upgrade_id.is_empty() and not seen_ids.has(upgrade_id), "Account upgrade has a stable unique ID: %s" % upgrade_id)
+		_expect(max_level == 5 and costs.size() == max_level, "Account upgrade has five explicit costs: %s" % upgrade_id)
+		_expect(upgrade.get("effects_per_level") is Dictionary and not upgrade.get("effects_per_level", {}).is_empty(), "Account upgrade is data-driven: %s" % upgrade_id)
+		_expect(english.has(str(upgrade.get("name_key", ""))) and vietnamese.has(str(upgrade.get("name_key", ""))), "Account upgrade name is bilingual: %s" % upgrade_id)
+		_expect(english.has(str(upgrade.get("description_key", ""))) and vietnamese.has(str(upgrade.get("description_key", ""))), "Account upgrade description is bilingual: %s" % upgrade_id)
+		seen_ids[upgrade_id] = true
+	var content_database := root.get_node("ContentDatabase")
+	_expect(content_database.get_account_upgrade_ids().size() == upgrades.size(), "Content database indexes every permanent upgrade.")
+	var profile_service := root.get_node("PlayerProfileService")
+	var account_service := root.get_node("AccountProgressionService")
+	var previous_profile: Dictionary = profile_service.profile.duplicate(true)
+	profile_service.profile = profile_service.create_default_profile()
+	profile_service.profile["meta_upgrades"] = {"royal_vitality": 2, "royal_training": 1, "marching_discipline": 1, "war_chest": 2}
+	var base_king: Dictionary = content_database.get_king(&"tran_hung_dao")
+	var upgraded_king: Dictionary = account_service.apply_to_king_config(base_king)
+	_expect(is_equal_approx(float(upgraded_king.get("health", {}).get("max", 0.0)), float(base_king.get("health", {}).get("max", 0.0)) + 40.0), "Royal Vitality adds permanent maximum health by rank.")
+	_expect(float(upgraded_king.get("attack", {}).get("damage", 0.0)) > float(base_king.get("attack", {}).get("damage", 0.0)), "Royal Training permanently scales King damage.")
+	_expect(float(upgraded_king.get("movement", {}).get("speed", 0.0)) > float(base_king.get("movement", {}).get("speed", 0.0)), "Marching Discipline permanently scales movement.")
+	_expect(account_service.get_starting_run_gold() == 20, "War Chest converts permanent ranks into new-run Gold without storing run_gold in the profile.")
+	var captured_modifiers: Dictionary = account_service.get_combined_modifiers()
+	profile_service.profile["meta_upgrades"] = {"royal_vitality": 5, "royal_training": 5, "marching_discipline": 5, "war_chest": 5}
+	var continued_king: Dictionary = account_service.apply_to_king_config(base_king, captured_modifiers)
+	_expect(is_equal_approx(float(continued_king.get("health", {}).get("max", 0.0)), float(upgraded_king.get("health", {}).get("max", 0.0))), "Continue uses the permanent modifier snapshot captured when the run began.")
+	profile_service.profile = previous_profile
+
+
 func _test_localization_catalogs() -> void:
 	var english := _load_json("res://localization/en-US/common.json")
 	var vietnamese := _load_json("res://localization/vi-VN/common.json")
@@ -488,6 +534,8 @@ func _test_localization_catalogs() -> void:
 		vietnamese_skill_card.contains("{current}") and vietnamese_skill_card.contains("{next}") and vietnamese_skill_card.contains("{max}") and vietnamese_skill_card.contains("{description}"),
 		"Vietnamese level-up cards expose skill rank progression and description."
 	)
+	_expect(str(english.get("phase8.defeat_summary", "")).contains("{account_gold_reward}"), "English defeat summary exposes the persistent reward.")
+	_expect(str(vietnamese.get("phase8.defeat_summary", "")).contains("{account_gold_reward}"), "Vietnamese defeat summary exposes the persistent reward.")
 
 
 func _test_platform_adapter() -> void:
@@ -522,7 +570,7 @@ func _test_battle_session_serialization() -> void:
 	var session := BattleSession.new()
 	session.create(&"tran_hung_dao", &"dai_viet", 12345)
 	var snapshot := session.to_dict()
-	_expect(snapshot.get("schema_version") == 3, "Battle session snapshot is versioned.")
+	_expect(snapshot.get("schema_version") == 4, "Battle session snapshot is versioned.")
 	_expect(snapshot.get("king_id") == "tran_hung_dao", "Battle session keeps the King ID.")
 	_expect(snapshot.get("faction_id") == "dai_viet", "Battle session keeps the faction ID.")
 	_expect(snapshot.get("run_gold") == 0, "Battle session uses temporary run_gold.")
@@ -533,14 +581,17 @@ func _test_battle_session_serialization() -> void:
 	_expect(snapshot.get("army") is Array, "Battle session snapshots summoned allied units.")
 	_expect(snapshot.get("skills") is Dictionary and snapshot.get("upgrades") is Dictionary, "Battle session reserves skill and army-upgrade progression.")
 	_expect(snapshot.get("active_skills") is Dictionary and snapshot.get("run_stats") is Dictionary, "Battle session reserves Phase 7 active-skill and run-summary state.")
+	_expect(snapshot.get("account_modifiers") is Dictionary, "Battle session snapshots permanent modifiers so Continue cannot apply purchases twice or mid-run.")
 	_expect(snapshot.get("run_level") == 1 and snapshot.get("run_xp") == 0, "Battle session starts King progression at level one.")
 	var phase6_snapshot := snapshot.duplicate(true)
 	phase6_snapshot["schema_version"] = 2
 	phase6_snapshot.erase("active_skills")
 	phase6_snapshot.erase("run_stats")
 	var migrated := BattleSession.migrate_snapshot(phase6_snapshot)
-	_expect(migrated.get("schema_version") == 3 and migrated.get("active_skills") is Dictionary, "BattleSession migrates a Phase 6 snapshot to the Phase 7 active-skill schema.")
+	_expect(migrated.get("schema_version") == 4 and migrated.get("active_skills") is Dictionary, "BattleSession migrates a Phase 6 snapshot through the Phase 8 schema.")
 	_expect(migrated.get("run_stats") is Dictionary and int(migrated.get("run_stats", {}).get("enemies_defeated", -1)) == 0, "BattleSession migration initializes deterministic run-summary counters.")
+	_expect(not bool(migrated.get("run_stats", {}).get("account_reward_claimed", true)), "BattleSession migration initializes an unclaimed persistent reward.")
+	_expect(is_equal_approx(float(migrated.get("account_modifiers", {}).get("attack_damage_multiplier", 0.0)), 1.0), "Older active runs migrate with neutral permanent modifiers.")
 
 
 func _test_enemy_spawn_director_state() -> void:
@@ -647,19 +698,22 @@ func _test_reward_grants() -> void:
 	var game_session_service := root.get_node("GameSessionService")
 	var reward_grant_service := root.get_node("RewardGrantService")
 	game_session_service.start_session(&"tran_hung_dao", &"dai_viet", 777)
+	var starting_gold: int = reward_grant_service.get_run_gold()
 	_expect(reward_grant_service.grant_run_gold(3, {"source_id": "test"}) == 3, "Reward service grants positive run Gold.")
-	_expect(reward_grant_service.get_run_gold() == 3, "Granted run Gold is stored in the active battle only.")
+	_expect(reward_grant_service.get_run_gold() == starting_gold + 3, "Granted run Gold is stored in the active battle only.")
 	_expect(reward_grant_service.grant_run_gold(0) == 0, "Reward service rejects non-positive run Gold.")
-	_expect(reward_grant_service.get_run_gold() == 3, "Rejected rewards do not alter run Gold.")
+	_expect(reward_grant_service.get_run_gold() == starting_gold + 3, "Rejected rewards do not alter run Gold.")
 	_expect(reward_grant_service.try_spend_run_gold(2, {"sink": "test"}), "Central run currency service accepts an affordable spend.")
-	_expect(reward_grant_service.get_run_gold() == 1, "Run Gold spending updates only the active battle currency.")
-	_expect(not reward_grant_service.try_spend_run_gold(2), "Central run currency service rejects an unaffordable spend.")
-	_expect(reward_grant_service.get_run_gold() == 1, "Rejected spending does not alter run Gold.")
+	_expect(reward_grant_service.get_run_gold() == starting_gold + 1, "Run Gold spending updates only the active battle currency.")
+	_expect(not reward_grant_service.try_spend_run_gold(starting_gold + 2), "Central run currency service rejects an unaffordable spend.")
+	_expect(reward_grant_service.get_run_gold() == starting_gold + 1, "Rejected spending does not alter run Gold.")
 	_expect(reward_grant_service.grant_run_xp(7, {"source_id": "test"}) == 7, "Reward service centrally grants King XP.")
 	_expect(reward_grant_service.get_run_xp() == 7, "Granted XP is stored in the active battle.")
 	game_session_service.end_session({"reason": "test_complete"})
 	_expect(reward_grant_service.grant_run_gold(3) == 0, "Reward service rejects grants without an active battle.")
 	_expect(not reward_grant_service.try_spend_run_gold(1), "Reward service rejects spending without an active battle.")
+	var account_reward: int = reward_grant_service.calculate_account_gold_reward({"time": 90.0, "enemies": 30, "bosses": 1, "level": 4})
+	_expect(account_reward == 121, "Persistent reward follows the data-driven Phase 8 curve.")
 
 
 func _test_movement_input() -> void:
@@ -775,6 +829,10 @@ func _test_movement_arena_layout() -> void:
 	var menu := packed_menu.instantiate()
 	var exit_button := menu.get_node("Center/Panel/Content/ExitButton") as Button
 	_expect(exit_button != null and exit_button.custom_minimum_size.y >= 48.0, "Main menu offers a touch-accessible Exit Game button.")
+	var treasury_overlay := menu.get_node("TreasuryOverlay") as Control
+	var treasury_grid := menu.get_node("TreasuryOverlay/Center/Panel/Content/TreasuryGrid") as GridContainer
+	_expect(treasury_overlay != null and not treasury_overlay.visible, "Royal Treasury is an on-demand court overlay.")
+	_expect(treasury_grid != null and treasury_grid.columns == 2, "Royal Treasury uses a touch-readable two-column upgrade grid.")
 	menu.free()
 
 
@@ -2010,9 +2068,35 @@ func _test_default_profile() -> void:
 		return
 	var profile_service: Node = profile_service_script.new()
 	var profile: Dictionary = profile_service.create_default_profile()
+	_expect(int(profile.get("schema_version", 0)) == 2, "Persistent profile uses the Phase 8 schema.")
 	var resources: Dictionary = profile.get("resources", {})
 	_expect(resources.has("account_gold"), "Persistent profile uses account_gold.")
 	_expect(not resources.has("run_gold"), "Persistent profile does not contain run_gold.")
+	_expect(profile.get("meta_upgrades") is Dictionary, "Persistent profile stores permanent upgrade ranks separately.")
+	var legacy := profile.duplicate(true)
+	legacy["schema_version"] = 1
+	legacy.erase("meta_upgrades")
+	var migrated: Dictionary = profile_service.migrate_profile(legacy)
+	_expect(int(migrated.get("schema_version", 0)) == 2 and migrated.get("meta_upgrades") is Dictionary, "Phase 7 profiles migrate without losing existing resources.")
+	profile_service.free()
+
+
+func _test_profile_progression_transactions() -> void:
+	var service_script := load("res://tests/in_memory_player_profile_service.gd")
+	var profile_service: Node = service_script.new()
+	profile_service.profile = profile_service.create_default_profile()
+	_expect(profile_service.grant_resource(&"account_gold", 200), "In-memory profile accepts a centralized persistent reward.")
+	_expect(profile_service.get_resource(&"account_gold") == 200, "Persistent reward updates account_gold only.")
+	_expect(profile_service.purchase_meta_upgrade(&"royal_vitality", 1, 60), "Affordable permanent upgrade purchase is atomic.")
+	_expect(profile_service.get_resource(&"account_gold") == 140 and profile_service.get_meta_upgrade_level(&"royal_vitality") == 1, "Permanent purchase spends Account Gold and advances exactly one rank.")
+	_expect(not profile_service.purchase_meta_upgrade(&"royal_vitality", 3, 60), "Permanent purchase cannot skip upgrade ranks.")
+	_expect(not profile_service.purchase_meta_upgrade(&"royal_training", 1, 500), "Permanent purchase rejects insufficient Account Gold.")
+	_expect(profile_service.record_completed_run({"time": 95.0, "enemies": 32, "bosses": 1, "score": 1234}, 121), "Completed run updates the persistent profile atomically.")
+	var snapshot: Dictionary = profile_service.get_profile_snapshot()
+	var statistics: Dictionary = snapshot.get("statistics", {})
+	_expect(profile_service.get_resource(&"account_gold") == 261, "Completed run adds its exact Account Gold reward.")
+	_expect(int(statistics.get("completed_runs", 0)) == 1 and int(statistics.get("total_kills", 0)) == 32 and int(statistics.get("boss_kills", 0)) == 1, "Completed run accumulates career counters.")
+	_expect(int(statistics.get("highest_battle_score", 0)) == 1234 and int(statistics.get("longest_survival_sec", 0)) == 95, "Completed run records career bests.")
 	profile_service.free()
 
 

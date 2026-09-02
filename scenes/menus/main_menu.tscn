@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scenes/menus/main_menu.gd" id="1_menu"]
 
@@ -29,6 +29,18 @@ corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleTreasuryCard"]
+bg_color = Color(0.11, 0.09, 0.07, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.74, 0.49, 0.12, 1)
+corner_radius_top_left = 9
+corner_radius_top_right = 9
+corner_radius_bottom_right = 9
+corner_radius_bottom_left = 9
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -85,6 +97,14 @@ theme_override_font_sizes/font_size = 18
 text = "menu.subtitle"
 horizontal_alignment = 1
 
+[node name="AccountGoldLabel" type="Label" parent="Center/Panel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.76, 0.18, 1)
+theme_override_font_sizes/font_size = 20
+text = "phase8.account_gold"
+horizontal_alignment = 1
+
 [node name="SpacerTop" type="Control" parent="Center/Panel/Content"]
 custom_minimum_size = Vector2(0, 12)
 layout_mode = 2
@@ -120,7 +140,6 @@ theme_override_constants/separation = 10
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-disabled = true
 text = "menu.kings"
 
 [node name="ArmyButton" type="Button" parent="Center/Panel/Content/SecondaryRow"]
@@ -181,3 +200,101 @@ theme_override_colors/font_color = Color(0.75, 0.67, 0.46, 1)
 text = "phase0.status"
 horizontal_alignment = 1
 autowrap_mode = 2
+
+[node name="TreasuryOverlay" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Dim" type="ColorRect" parent="TreasuryOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.008, 0.01, 0.018, 0.94)
+
+[node name="Center" type="CenterContainer" parent="TreasuryOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+offset_left = 24.0
+offset_top = 20.0
+offset_right = -24.0
+offset_bottom = -20.0
+
+[node name="Panel" type="PanelContainer" parent="TreasuryOverlay/Center"]
+custom_minimum_size = Vector2(820, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StylePanel")
+
+[node name="Content" type="VBoxContainer" parent="TreasuryOverlay/Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 11
+
+[node name="TreasuryTitleLabel" type="Label" parent="TreasuryOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.72, 0.24, 1)
+theme_override_font_sizes/font_size = 34
+text = "phase8.treasury_title"
+horizontal_alignment = 1
+
+[node name="TreasuryBalanceLabel" type="Label" parent="TreasuryOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84, 0.32, 1)
+theme_override_font_sizes/font_size = 22
+text = "phase8.account_gold"
+horizontal_alignment = 1
+
+[node name="TreasuryHintLabel" type="Label" parent="TreasuryOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.74, 0.8, 1)
+text = "phase8.treasury_hint"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="TreasuryGrid" type="GridContainer" parent="TreasuryOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="TreasuryButtonTemplate" type="Button" parent="TreasuryOverlay/Center/Panel/Content/TreasuryGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(350, 112)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleTreasuryCard")
+text = "phase8.upgrade_card"
+autowrap_mode = 2
+
+[node name="TreasuryStatsLabel" type="Label" parent="TreasuryOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.72, 0.82, 1)
+text = "phase8.career_stats"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="TreasuryCloseButton" type="Button" parent="TreasuryOverlay/Center/Panel/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 50)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("StyleButton")
+text = "phase8.close_treasury"

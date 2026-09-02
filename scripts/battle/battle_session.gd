@@ -1,7 +1,7 @@
 class_name BattleSession
 extends RefCounted
 
-const SCHEMA_VERSION := 3
+const SCHEMA_VERSION := 4
 
 var session_id := ""
 var seed := 0
@@ -20,6 +20,14 @@ var revive_count := 0
 var army: Array[Dictionary] = []
 var skills: Dictionary = {}
 var active_skills: Dictionary = {}
+var account_modifiers: Dictionary = {
+	"max_health_flat": 0.0,
+	"attack_damage_multiplier": 1.0,
+	"move_speed_multiplier": 1.0,
+	"armor_flat": 0.0,
+	"magic_resistance_flat": 0.0,
+	"starting_run_gold_flat": 0.0,
+}
 var upgrades: Dictionary = {}
 var enemy_wave_state: Dictionary = {}
 var boss_state: Dictionary = {}
@@ -31,6 +39,8 @@ var run_stats: Dictionary = {
 	"active_skills_cast": 0,
 	"max_army_size": 0,
 	"gold_collected": 0,
+	"account_reward_claimed": false,
+	"account_gold_reward": 0,
 }
 var king_state: Dictionary = {
 	"position": {"x": 0.0, "y": 0.0},
@@ -60,6 +70,20 @@ static func migrate_snapshot(snapshot: Dictionary) -> Dictionary:
 			"max_army_size": 0,
 			"gold_collected": 0,
 		}
+	if source_version < 4:
+		var run_stats_value: Variant = migrated.get("run_stats", {})
+		var migrated_stats: Dictionary = run_stats_value if run_stats_value is Dictionary else {}
+		migrated_stats["account_reward_claimed"] = false
+		migrated_stats["account_gold_reward"] = 0
+		migrated["run_stats"] = migrated_stats
+		migrated["account_modifiers"] = {
+			"max_health_flat": 0.0,
+			"attack_damage_multiplier": 1.0,
+			"move_speed_multiplier": 1.0,
+			"armor_flat": 0.0,
+			"magic_resistance_flat": 0.0,
+			"starting_run_gold_flat": 0.0,
+		}
 	migrated["schema_version"] = SCHEMA_VERSION
 	return migrated
 
@@ -82,6 +106,7 @@ func to_dict() -> Dictionary:
 		"army": army.duplicate(true),
 		"skills": skills.duplicate(true),
 		"active_skills": active_skills.duplicate(true),
+		"account_modifiers": account_modifiers.duplicate(true),
 		"upgrades": upgrades.duplicate(true),
 		"enemy_wave_state": enemy_wave_state.duplicate(true),
 		"boss_state": boss_state.duplicate(true),

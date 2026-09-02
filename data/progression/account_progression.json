@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "content_version": "phase8.0",
+  "reward_curve": {
+    "base_account_gold": 8,
+    "per_30_seconds": 5,
+    "per_enemy": 1,
+    "per_boss": 50,
+    "per_run_level_after_first": 6
+  },
+  "upgrades": [
+    {
+      "id": "royal_vitality",
+      "name_key": "meta_upgrade.royal_vitality.name",
+      "description_key": "meta_upgrade.royal_vitality.description",
+      "max_level": 5,
+      "costs": [60, 120, 210, 330, 480],
+      "effects_per_level": {
+        "max_health_flat": 20.0
+      }
+    },
+    {
+      "id": "royal_training",
+      "name_key": "meta_upgrade.royal_training.name",
+      "description_key": "meta_upgrade.royal_training.description",
+      "max_level": 5,
+      "costs": [75, 145, 245, 375, 535],
+      "effects_per_level": {
+        "attack_damage_multiplier": 0.05
+      }
+    },
+    {
+      "id": "marching_discipline",
+      "name_key": "meta_upgrade.marching_discipline.name",
+      "description_key": "meta_upgrade.marching_discipline.description",
+      "max_level": 5,
+      "costs": [55, 115, 200, 310, 450],
+      "effects_per_level": {
+        "move_speed_multiplier": 0.03,
+        "armor_flat": 1.0,
+        "magic_resistance_flat": 1.0
+      }
+    },
+    {
+      "id": "war_chest",
+      "name_key": "meta_upgrade.war_chest.name",
+      "description_key": "meta_upgrade.war_chest.description",
+      "max_level": 5,
+      "costs": [50, 105, 185, 290, 425],
+      "effects_per_level": {
+        "starting_run_gold_flat": 10.0
+      }
+    }
+  ]
+}

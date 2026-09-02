@@ -95,7 +95,10 @@ func _ready() -> void:
 	if not GameSessionService.has_active_session():
 		GameSessionService.start_session(&"tran_hung_dao", &"dai_viet", int(Time.get_ticks_usec() & 0x7fffffff))
 
-	_king_config = ContentDatabase.get_king(&"tran_hung_dao")
+	_king_config = AccountProgressionService.apply_to_king_config(
+		ContentDatabase.get_king(&"tran_hung_dao"),
+		GameSessionService.active_session.account_modifiers
+	)
 	_load_enemy_configs()
 	_load_unit_configs()
 	_load_skill_configs()
@@ -178,7 +181,8 @@ func _ready() -> void:
 	_refresh_live_text()
 	death_overlay.visible = not king.is_combat_alive()
 	if death_overlay.visible:
-		defeat_detail_label.text = LocalizationService.translate_key("phase7.defeat_summary", _build_battle_result())
+		_settle_defeated_run()
+		defeat_detail_label.text = LocalizationService.translate_key("phase8.defeat_summary", _build_battle_result())
 	enemy_spawn_director.set_active(king.is_combat_alive())
 
 
@@ -759,7 +763,7 @@ func _refresh_live_text() -> void:
 	else:
 		target_label.text = LocalizationService.translate_key("phase2.no_target")
 	if death_overlay.visible:
-		defeat_detail_label.text = LocalizationService.translate_key("phase7.defeat_summary", _build_battle_result())
+		defeat_detail_label.text = LocalizationService.translate_key("phase8.defeat_summary", _build_battle_result())
 
 
 func _on_enemy_defeated(enemy: GoblinController, _context: Dictionary) -> void:
@@ -969,7 +973,8 @@ func _on_king_defeated(_context: Dictionary) -> void:
 	death_overlay.visible = true
 	var result := _build_battle_result()
 	GameSessionService.active_session.battle_score = int(result.get("score", 0))
-	defeat_detail_label.text = LocalizationService.translate_key("phase7.defeat_summary", result)
+	RewardGrantService.settle_active_run(result)
+	defeat_detail_label.text = LocalizationService.translate_key("phase8.defeat_summary", _build_battle_result())
 	_store_combat_state()
 	_refresh_live_text()
 
@@ -997,6 +1002,8 @@ func _restart_combat_drill() -> void:
 	_skip_exit_snapshot = true
 	GameSessionService.pause_manager.clear_pause(PauseManager.LEVEL_UP)
 	GameSessionService.pause_manager.clear_pause(PauseManager.ARMY_UPGRADE)
+	if GameSessionService.has_active_session():
+		GameSessionService.end_session(_build_battle_result())
 	var session_seed := int(Time.get_ticks_usec() & 0x7fffffff)
 	GameSessionService.start_session(&"tran_hung_dao", &"dai_viet", session_seed)
 	SceneService.change_scene_to_file("res://scenes/gameplay/movement_arena.tscn")
@@ -1071,7 +1078,7 @@ func _refresh_active_skill_hud() -> void:
 
 func _build_battle_result() -> Dictionary:
 	if not GameSessionService.has_active_session():
-		return {"time": 0.0, "score": 0, "enemies": 0, "bosses": 0, "level": 1, "gold": 0, "army": 0, "skills": 0}
+		return {"time": 0.0, "score": 0, "enemies": 0, "bosses": 0, "level": 1, "gold": 0, "army": 0, "skills": 0, "account_gold_reward": 0, "account_gold_total": PlayerProfileService.get_resource(&"account_gold")}
 	var session := GameSessionService.active_session
 	var stats := GameSessionService.get_run_stats()
 	var enemies := int(stats.get("enemies_defeated", 0))
@@ -1088,7 +1095,17 @@ func _build_battle_result() -> Dictionary:
 		"gold": session.run_gold,
 		"army": int(stats.get("max_army_size", 0)),
 		"skills": skill_casts,
+		"account_gold_reward": int(stats.get("account_gold_reward", 0)),
+		"account_gold_total": PlayerProfileService.get_resource(&"account_gold"),
 	}
+
+
+func _settle_defeated_run() -> void:
+	if not GameSessionService.has_active_session():
+		return
+	var result := _build_battle_result()
+	GameSessionService.active_session.battle_score = int(result.get("score", 0))
+	RewardGrantService.settle_active_run(result)
 
 
 func _update_hold_move_direction() -> void:

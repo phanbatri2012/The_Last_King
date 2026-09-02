@@ -32,6 +32,8 @@ func start_session(king_id: StringName, faction_id: StringName, seed: int) -> Ba
 	pause_manager.clear_pause(PauseManager.ARMY_UPGRADE)
 	active_session = BattleSession.new()
 	active_session.create(king_id, faction_id, seed)
+	active_session.account_modifiers = AccountProgressionService.get_combined_modifiers()
+	active_session.run_gold = AccountProgressionService.get_starting_run_gold(active_session.account_modifiers)
 	game_clock.reset()
 	session_started.emit(active_session)
 	GameEventBus.battle_started.emit(active_session.session_id)
